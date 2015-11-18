@@ -4,4 +4,7 @@ module Deployment
 
   class NoSuchTask < StandardError
   end
+
+  class NotImplemented < StandardError
+  end
 end

@@ -1,18 +1,22 @@
+require 'log'
+
 module Deployment
   class Process
 
-    def initialize(id ,*nodes)
+    def initialize(*nodes)
       self.nodes = nodes.flatten
-      @id = id
+      @id = nil
     end
 
-    def self.[](id, *nodes)
-      Deployment::Process.new id, *nodes
-    end
+    include Enumerable
+    include Deployment::Log
 
     attr_reader :nodes
     attr_accessor :id
-    include Enumerable
+
+    def self.[](*nodes)
+      Deployment::Process.new *nodes
+    end
 
     def nodes=(nodes)
       fail Deployment::InvalidArgument, "#{self}: Nodes should be an array" unless nodes.is_a? Array
@@ -23,6 +27,7 @@ module Deployment
     def each_node(&block)
       nodes.each(&block)
     end
+
     alias :each :each_node
 
     def each_task
@@ -51,26 +56,18 @@ module Deployment
     end
 
     def run
+      info 'Starting the deployment process'
       loop do
         if all_nodes_are_successful?
-          debug 'All nodes are deployed successfully. Stopping deployment process.'
-          break
+          info 'All nodes are deployed successfully - Stopping the deployment process'
+          break true
         end
         if all_nodes_are_finished?
-          debug 'All nodes are finished with different statuses. Stopping deployment process.'
-          break
+          info 'All nodes are finished with different statuses - Stopping the deployment process'
+          break false
         end
         process_all_nodes
       end
-    end
-
-    def log(message)
-      # override this in a subclass
-      puts message
-    end
-
-    def debug(message)
-      log "#{self}: #{message}"
     end
 
     def all_nodes_are_finished?
@@ -91,6 +88,36 @@ module Deployment
       end
     end
 
+    def tasks_total_count
+      inject(0) do |sum, node|
+        sum + node.graph.tasks_total_count
+      end
+    end
+
+    def tasks_failed_count
+      inject(0) do |sum, node|
+        sum + node.graph.tasks_failed_count
+      end
+    end
+
+    def tasks_successful_count
+      inject(0) do |sum, node|
+        sum + node.graph.tasks_successful_count
+      end
+    end
+
+    def tasks_finished_count
+      inject(0) do |sum, node|
+        sum + node.graph.tasks_finished_count
+      end
+    end
+
+    def tasks_pending_count
+      inject(0) do |sum, node|
+        sum + node.graph.tasks_pending_count
+      end
+    end
+
     def gv_load
       require 'gv'
       extend Deployment::GV
@@ -103,7 +130,7 @@ module Deployment
 
     def inspect
       message = "#{self}"
-      message += " Nodes: #{map { |node| node.name }.join ', '}"  if nodes.any?
+      message += " Tasks: #{tasks_finished_count}/#{tasks_total_count} Nodes: #{map { |node| node.name }.join ', '}" if nodes.any?
       message
     end
   end

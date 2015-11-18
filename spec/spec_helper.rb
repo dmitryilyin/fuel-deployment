@@ -5,6 +5,8 @@ require File.join File.dirname(__FILE__), '../lib/error'
 require File.join File.dirname(__FILE__), '../lib/graph'
 require File.join File.dirname(__FILE__), '../lib/process'
 
+Deployment::Log.logger.level = Logger::WARN
+
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.syntax = :expect

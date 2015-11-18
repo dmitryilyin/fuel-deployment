@@ -1,20 +1,25 @@
+require 'log'
+
 module Deployment
   class Node
     ALLOWED_STATUSES = [:online, :busy, :offline, :failed, :successful]
 
-    def initialize(name)
+    def initialize(name, id = nil)
       @name = name
       @status = :online
       @task = nil
+      @id = id || self.name
       create_new_graph
     end
 
     include Enumerable
+    include Deployment::Log
 
     attr_reader :status
     attr_reader :name
     attr_reader :task
     attr_reader :graph
+    attr_accessor :id
 
     def status=(value)
       value = value.to_sym
@@ -58,7 +63,10 @@ module Deployment
     end
 
     def task=(task)
-      fail Deployment::InvalidArgument, "#{self}: Task should be a task object or nil" unless task.is_a? Deployment::Task or task.nil?
+      unless task.nil?
+        fail Deployment::InvalidArgument, "#{self}: Task should be a task object or nil" unless task.is_a? Deployment::Task
+        fail Deployment::InvalidArgument, "#{self}: Task #{task} is not found in the graph" unless graph.task_present? task
+      end
       @task = task
     end
 
@@ -72,69 +80,28 @@ module Deployment
       self.graph = Deployment::Graph.new(self)
     end
 
-    def each_task(&block)
-      graph.each(&block)
-    end
-    alias :each :each_task
-
-    def debug(message)
-      log "#{self}: #{message}"
-    end
-
     def to_s
-      "Node[#{name}]"
+      return "Node[#{id}]" if id == name
+      "Node[#{id}/#{name}]"
     end
 
     def inspect
       message = "#{self} Status: #{status}"
-      message += " Task: #{task.name}" if task
+      message += " Tasks: #{tasks_finished_count}/#{tasks_total_count}"
+      message += " CurrentTask: #{task.name}" if task
       message
     end
 
-    def tasks_are_finished?
-      graph.tasks_are_finished?
-    end
-    alias :finished? :tasks_are_finished?
-
-    def tasks_are_successful?
-      graph.tasks_are_successful?
-    end
-    alias :successful? :tasks_are_successful?
-
-    def tasks_have_failed?
-      graph.tasks_have_failed?
-    end
-    alias :failed? :tasks_have_failed?
-
-    def ready_task
-      graph.ready_task
-    end
-    alias :next_task :ready_task
-
-    def task_get(task_name)
-      graph.task_get task_name
-    end
-    alias :get_task :task_get
-    alias :[] :task_get
-
-    def log(message)
-      # override this in a subclass
-      puts message
+    def method_missing(method, *args, &block)
+      graph.send method, *args, &block
     end
 
     def run(task)
-      # override this in a subclass
-      fail Deployment::InvalidArgument, "#{self}: Node can run only tasks" unless task.is_a? Deployment::Task
-      debug "Run task: #{task}"
-      self.task = task
-      self.status = :busy
+      raise Deployment::NotImplemented, 'This method is abstract and should be implemented in a subclass'
     end
 
     def poll
-      # override this in a subclass
-      debug 'Poll node status'
-      self.task.status = :successful if busy?
-      self.status = :online
+      raise Deployment::NotImplemented, 'This method is abstract and should be implemented in a subclass'
     end
 
   end

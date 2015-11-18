@@ -1,30 +1,44 @@
 require 'error'
 require 'node'
 require 'set'
+require 'log'
 
 module Deployment
   class Task
     ALLOWED_STATUSES = [:pending, :successful, :failed, :skipped, :running]
 
-    def initialize(name, node)
+    def initialize(name, node, data=nil)
       self.name = name
       @status = :pending
-      @required = Set.new
-      @dependencies_are_ready = false
-      @dependencies_have_failed = false
+      @backward_dependencies = Set.new
+      @forward_dependencies = Set.new
+      @dependencies_are_ready = nil
+      @dependencies_have_failed = nil
+      @data = data
       self.node = node
     end
 
     include Enumerable
+    include Deployment::Log
 
     attr_reader :name
     attr_reader :node
     attr_reader :status
-    attr_reader :required
+    attr_reader :backward_dependencies
+    attr_reader :forward_dependencies
+
+    attr_accessor :data
 
     def reset
-      @dependencies_are_ready = false
-      @dependencies_have_failed = false
+      @dependencies_are_ready = nil
+      @dependencies_have_failed = nil
+      reset_forward
+    end
+
+    def reset_forward
+      each_forward_dependency do |task|
+        task.reset
+      end
     end
 
     def node=(node)
@@ -40,6 +54,8 @@ module Deployment
       value = value.to_sym
       fail Deployment::InvalidArgument, "#{self}: Invalid task status: #{value}" unless ALLOWED_STATUSES.include? value
       @status = value
+      reset_forward if [:failed, :successful].include? value
+      @status
     end
 
     ALLOWED_STATUSES.each do |status|
@@ -49,66 +65,124 @@ module Deployment
       end
     end
 
-    def dependency_add(task)
+    def dependency_backward_add(task)
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
-      required.add task
+      backward_dependencies.add task
+      task.forward_dependencies.add self
       reset
     end
-    alias :add_dependency :dependency_add
-    alias :depends :dependency_add
 
-    def dependency_remove(task)
+    alias :requires :dependency_backward_add
+    alias :depends :dependency_backward_add
+    alias :after :dependency_backward_add
+
+    alias :dependency_add :dependency_backward_add
+    alias :add_dependency :dependency_backward_add
+
+    def dependency_forward_add(task)
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
-      required.delete task
+      forward_dependencies.add task
+      task.backward_dependencies.add self
       reset
     end
-    alias :remove_dependency :dependency_remove
 
-    def dependency_present?(task)
+    alias :is_required :dependency_forward_add
+    alias :depended_on :dependency_forward_add
+    alias :before :dependency_forward_add
+
+    def dependency_backward_remove(task)
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
-      required.member? task
+      backward_dependencies.delete task
+      task.forward_dependencies.delete self
+      reset
     end
-    alias :has_dependency? :dependency_present?
 
-    def dependencies_any?
-      required.any?
+    alias :remove_requires :dependency_backward_remove
+    alias :remove_depends :dependency_backward_remove
+    alias :remove_after :dependency_backward_remove
+
+    alias :dependency_remove :dependency_backward_remove
+    alias :remove_dependency :dependency_backward_remove
+
+    def dependency_forward_remove(task)
+      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      forward_dependencies.delete task
+      task.backward_dependencies.delete self
+      reset
     end
-    alias :any_dependencies? :dependencies_any?
 
-    def each_dependency(&block)
-      required.each(&block)
+    alias :remove_is_required :dependency_forward_remove
+    alias :remove_depended_on :dependency_forward_remove
+    alias :remove_before :dependency_forward_remove
+
+    def dependency_backward_present?(task)
+      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      backward_dependencies.member? task and task.forward_dependencies.member? self
     end
-    alias :each :each_dependency
 
-    # Dependencies checks #
+    alias :has_requires? :dependency_backward_present?
+    alias :has_depends? :dependency_backward_present?
+    alias :has_after? :dependency_backward_present?
+
+    alias :dependency_present? :dependency_backward_present?
+    alias :has_dependency? :dependency_backward_present?
+
+    def dependency_forward_present?(task)
+      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      forward_dependencies.member? task and task.backward_dependencies.member? self
+    end
+
+    alias :has_is_required? :dependency_forward_present?
+    alias :has_depended_on? :dependency_forward_present?
+    alias :has_before? :dependency_forward_present?
+
+    def dependency_backward_any?
+      backward_dependencies.any?
+    end
+
+    alias :any_backward_dependency? :dependency_backward_any?
+
+    alias :dependency_any? :dependency_backward_any?
+    alias :any_dependency? :dependency_backward_any?
+
+    def dependency_forward_any?
+      forward_dependencies.any?
+    end
+
+    alias :any_forward_dependencies? :dependency_forward_any?
+
+    def each_backward_dependency(&block)
+      backward_dependencies.each(&block)
+    end
+
+    alias :each :each_backward_dependency
+    alias :each_dependency :each_backward_dependency
+
+    def each_forward_dependency(&block)
+      forward_dependencies.each(&block)
+    end
 
     def dependencies_are_ready?
-      return true if @dependencies_are_ready
+      return @dependencies_are_ready unless @dependencies_are_ready.nil?
       return false if @dependencies_have_failed
       ready = all? do |task|
-        task.successful?
+        task.successful? or task.skipped?
       end
-      if ready
-        debug 'All dependencies are ready'
-        @dependencies_are_ready = true
-      end
-      ready
+      debug 'All dependencies are ready' if ready
+      @dependencies_are_ready = ready
     end
 
     def dependencies_have_failed?
-      return true if @dependencies_have_failed
+      return @dependencies_have_failed unless @dependencies_have_failed.nil?
       failed = select do |task|
         task.failed?
       end
-      if failed.any?
-        debug "Found failed dependencies: #{failed.map { |t| t.name }.join ', '}"
-        @dependencies_have_failed = true
-      end
-      failed.any?
+      debug "Found failed dependencies: #{failed.map { |t| t.name }.join ', '}" if failed.any?
+      @dependencies_have_failed = failed.any?
     end
 
     def finished?
-      [:successful, :failed, :skipped].include? status
+      failed? or successful? or skipped?
     end
 
     def successful?
@@ -118,6 +192,7 @@ module Deployment
     def pending?
       status == :pending
     end
+
     alias :new? :pending?
 
     def running?
@@ -137,34 +212,39 @@ module Deployment
     end
 
     def to_s
-      "Task[#{name}]"
+      "Task[#{node.name}/#{name}]"
     end
 
     def inspect
-      list_of_dependencies = map do |task|
-        "#{task.name}(#{task.node.name})"
-      end
-      report = [
-          "Task[#{name}]",
-          "Status: #{status}"
-      ]
-      report << "Required: #{list_of_dependencies.join ', '}" if list_of_dependencies.any?
-      report.join ' '
+      message = "#{self}"
+      message += " Status: #{status} DepsReady: #{dependencies_are_ready?} DepsFailed: #{dependencies_have_failed?}"
+      message += " After: #{dependency_backward_names.join ', '}" if dependency_backward_any?
+      message += " Before: #{dependency_forward_names.join ', '}" if dependency_forward_any?
+      message
     end
 
-    def debug(message)
-      log "#{self}: #{message}"
+    def dependency_backward_names
+      names = []
+      each_backward_dependency do |task|
+        names << "#{task.name}(#{task.node.name})"
+      end
+      names
+    end
+
+    alias :dependency_names :dependency_backward_names
+
+    def dependency_forward_names
+      names = []
+      each_forward_dependency do |task|
+        names << "#{task.name}(#{task.node.name})"
+      end
+      names
     end
 
     def run
-      debug "Run on node: #{node}"
+      info "Run on node: #{node}"
       @status = :running
       node.run self
-    end
-
-    def log(message)
-      # override this in a subclass
-      puts message
     end
 
   end

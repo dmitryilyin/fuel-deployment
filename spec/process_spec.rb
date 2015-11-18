@@ -1,16 +1,6 @@
 require 'rspec'
 
 describe Deployment::Node do
-  before(:each) do
-    class Deployment::Process
-      def log(mesage)
-      end
-    end
-    class Deployment::Graph
-      def log(mesage)
-      end
-    end
-  end
 
   let(:node1) do
     Deployment::Node.new 'node1'
@@ -41,7 +31,9 @@ describe Deployment::Node do
     node1.graph.add_task task1_2
     node2.graph.add_task task2_1
     node2.graph.add_task task2_2
-    Deployment::Process[1, node1, node2]
+    process = Deployment::Process[node1, node2]
+    process.id = 1
+    process
   end
 
   subject { process }
@@ -75,7 +67,7 @@ describe Deployment::Node do
     end
   end
 
-  context  '#nodes processing' do
+  context '#nodes processing' do
     it 'can iterate through all nodes' do
       expect(subject.each_node.to_a).to eq [node1, node2]
     end
@@ -113,24 +105,49 @@ describe Deployment::Node do
       task2_2.status = :failed
       expect(subject.some_nodes_are_failed?).to eq true
     end
+
+    it 'can count the total tasks number' do
+      expect(subject.tasks_total_count).to eq 4
+    end
+
+    it 'can count the failed tasks number' do
+      task1_1.status = :successful
+      task1_2.status = :failed
+      task2_1.status = :successful
+      task2_2.status = :failed
+      expect(subject.tasks_failed_count).to eq 2
+    end
+
+    it 'can count the successful tasks number' do
+      task1_1.status = :successful
+      task1_2.status = :successful
+      task2_1.status = :successful
+      task2_2.status = :pending
+      expect(subject.tasks_successful_count).to eq 3
+    end
+
+    it 'can count the finished tasks number' do
+      task1_1.status = :successful
+      task1_2.status = :failed
+      task2_1.status = :successful
+      task2_2.status = :pending
+      expect(subject.tasks_finished_count).to eq 3
+    end
+
+    it 'can count the pending tasks number' do
+      task1_1.status = :successful
+      task1_2.status = :failed
+      expect(subject.tasks_pending_count).to eq 2
+    end
   end
 
   context '#inspection' do
-    it 'can debug' do
-      expect(subject).to receive(:log).with('Process[1]: message')
-      subject.debug 'message'
-    end
-
-    it 'can log' do
-      expect(subject).to respond_to :log
-    end
-
     it 'can to_s' do
       expect(subject.to_s).to eq 'Process[1]'
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Process[1] Nodes: node1, node2'
+      expect(subject.inspect).to eq 'Process[1] Tasks: 0/4 Nodes: node1, node2'
     end
   end
 end

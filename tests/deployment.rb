@@ -1,12 +1,6 @@
-lib_dir = File.join File.dirname(__FILE__), '../lib/'
-lib_dir = File.absolute_path File.expand_path lib_dir
-$LOAD_PATH << lib_dir
+require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-require 'task'
-require 'node'
-require 'error'
-require 'graph'
-require 'process'
+PLOT = true
 
 node1_data = [
     [0, 1],
@@ -40,34 +34,29 @@ node2_data = [
     [6, 8],
 ]
 
-node1 = Deployment::Node.new 'node1'
-node2 = Deployment::Node.new 'node2'
+node1 = Deployment::TestNode.new 'node1'
+node2 = Deployment::TestNode.new 'node2'
 
 node1_data.each do |task_from, task_to|
   task_from = node1.graph.create_task "task#{task_from}"
   task_to = node1.graph.create_task "task#{task_to}"
-  node1.graph.dependency_add task_from, task_to
+  node1.graph.add_dependency task_from, task_to
 end
 
 node2_data.each do |task_from, task_to|
   task_from = node2.graph.create_task "task#{task_from}"
   task_to = node2.graph.create_task "task#{task_to}"
-  node2.graph.dependency_add task_from, task_to
+  node2.graph.add_dependency task_from, task_to
 end
 
 node2['task4'].depends node1['task3']
 node2['task5'].depends node1['task13']
 node1['task15'].depends node2['task6']
 
-deployment = Deployment::Process[1, node1, node2]
+deployment = Deployment::Process[node1, node2]
+deployment.id = 'deployment'
 
-begin
-    require 'graphviz'
-rescue LoadError
-  nil
-end
-
-if defined? GraphViz
+if PLOT
   deployment.gv_load
   deployment.gv_make_image
 end

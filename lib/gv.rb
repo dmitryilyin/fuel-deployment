@@ -12,15 +12,9 @@ module Deployment
     end
 
     def gv_graph_name
-      return name if respond_to? :name
-      return id if respond_to? :id
+      return name if respond_to? :name and name
+      return id if respond_to? :id and id
       'graph'
-    end
-
-    def gv_task_name(task)
-      return task unless task.is_a? Deployment::Task
-      return task.name if gv_filter_node
-      "#{task.node.name}_#{task.name}"
     end
 
     def gv_task_color(task)
@@ -54,15 +48,15 @@ module Deployment
 
       each_task do |task|
         next unless task.node == gv_filter_node if gv_filter_node
-        gv_node = @gv_object.add_node gv_task_name(task)
+        gv_node = @gv_object.add_node task.to_s
         gv_node.fillcolor = gv_task_color(task)
       end
 
       each_task do |task|
         task.each_dependency do |dep_task|
           next unless dep_task.node == gv_filter_node if gv_filter_node
-          next unless @gv_object.find_node gv_task_name(dep_task) and @gv_object.find_node gv_task_name(task)
-          @gv_object.add_edges gv_task_name(dep_task), gv_task_name(task)
+          next unless @gv_object.find_node dep_task.to_s and @gv_object.find_node task.to_s
+          @gv_object.add_edges dep_task.to_s, task.to_s
         end
       end
       @gv_object
@@ -73,9 +67,23 @@ module Deployment
       gv_object.to_s
     end
 
-    def gv_make_image
+    def gv_make_step_image
+      gv_reset
       return unless gv_object
-      gv_object.output(:svg => "#{gv_object.name}.svg")
+      @step = 1 unless @step
+      name = "#{gv_object.name}-#{@step}"
+      file = gv_make_image name
+      @step += 1
+      gv_reset
+      file
+    end
+
+    def gv_make_image(name=nil)
+      return unless gv_object
+      name = gv_object.name unless name
+      file = "#{name}.svg"
+      gv_object.output(:svg => file)
+      file
     end
   end
 end

@@ -1,26 +1,17 @@
-lib_dir = File.join File.dirname(__FILE__), '../lib/'
-lib_dir = File.absolute_path File.expand_path lib_dir
-$LOAD_PATH << lib_dir
-
-require 'task'
-require 'node'
-require 'error'
-require 'graph'
-require 'process'
+require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 TASK_NUMBER = 100
 NODE_NUMBER = 10
-PLOT = true
+PLOT = false
 
 def make_nodes
   1.upto(NODE_NUMBER).map do |node|
-    node = Deployment::Node.new "node#{node}"
-    make_tasks node
-    node
+    Deployment::TestNode.new "node#{node}"
   end
 end
 
 def make_tasks(node)
+  p node
   previous_task = nil
   1.upto(TASK_NUMBER).each do |number|
     task = "task#{number}"
@@ -30,32 +21,32 @@ def make_tasks(node)
     end
     task_from = node.graph.create_task previous_task
     task_to = node.graph.create_task task
-    node.graph.dependency_add task_from, task_to
+    node.graph.add_dependency task_from, task_to
     previous_task = task
   end
 end
 
-def make_deployment
-  Deployment::Process[2, *make_nodes]
+nodes = make_nodes
+
+nodes.each do |node|
+  puts "Make tasks for: #{node}"
+  make_tasks node
+  nil
 end
 
-deployment = make_deployment
+nodes.each do |node|
+  next if node == nodes.first
+  node['task10'].depends nodes.first['task50']
+end
 
-puts 'Graphs generated'
+deployment = Deployment::Process[*nodes]
+deployment.id = 'scale'
 
 if PLOT
-
-  begin
-    require 'graphviz'
-  rescue LoadError
-    nil
-  end
-
-  if defined? GraphViz
-    deployment.gv_load
-    deployment.gv_make_image
-  end
-
+  deployment.gv_load
+  deployment.gv_make_image
 end
 
 deployment.run
+
+

@@ -1,12 +1,6 @@
 require 'rspec'
 
 describe Deployment::Node do
-  before(:each) do
-    class Deployment::Node
-      def log(mesage)
-      end
-    end
-  end
 
   let(:node1) do
     Deployment::Node.new 'node1'
@@ -35,6 +29,10 @@ describe Deployment::Node do
       expect(subject.graph).to be_a Deployment::Graph
     end
 
+    it 'should have an id' do
+      expect(subject.id).to eq 'node1'
+    end
+
     it 'can set a name' do
       subject.name = 'node2'
       expect(subject.name).to eq 'node2'
@@ -61,10 +59,22 @@ describe Deployment::Node do
     end
 
     it 'can set a task' do
+      subject.add_task task1
       subject.task = task1
       expect(subject.task).to eq task1
       subject.task = nil
       expect(subject.task).to be_nil
+    end
+
+    it 'can set task only if it is in the graph' do
+      expect do
+        subject.task = task1
+      end.to raise_exception Deployment::InvalidArgument, /not found in the graph/
+    end
+
+    it 'can set an id' do
+      subject.id = 2
+      expect(subject.id).to eq 2
     end
 
     it 'will not set task to an invalid object' do
@@ -99,52 +109,20 @@ describe Deployment::Node do
   end
 
   context '#inspection' do
-    it 'can debug' do
-      expect(subject).to receive(:log).with('Node[node1]: message')
-      subject.debug 'message'
-    end
-
-    it 'can log' do
-      expect(subject).to respond_to :log
-    end
 
     it 'can to_s' do
       expect(subject.to_s).to eq 'Node[node1]'
+      subject.id = 1
+      expect(subject.to_s).to eq 'Node[1/node1]'
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Node[node1] Status: online'
+      expect(subject.inspect).to eq 'Node[node1] Status: online Tasks: 0/0'
       subject.status = :offline
-      expect(subject.inspect).to eq 'Node[node1] Status: offline'
+      expect(subject.inspect).to eq 'Node[node1] Status: offline Tasks: 0/0'
+      subject.add_task task1
       subject.task = task1
-      expect(subject.inspect).to eq 'Node[node1] Status: offline Task: task1'
-    end
-  end
-
-  context '#graph' do
-    it 'can proxy graph success method' do
-      expect(subject.graph).to receive(:tasks_are_successful?)
-      subject.tasks_are_successful?
-    end
-
-    it 'can proxy graph finished method' do
-      expect(subject.graph).to receive(:tasks_are_finished?)
-      subject.tasks_are_finished?
-    end
-
-    it 'can proxy graph failed method' do
-      expect(subject.graph).to receive(:tasks_have_failed?)
-      subject.tasks_have_failed?
-    end
-
-    it 'can proxy graph ready_task method' do
-      expect(subject.graph).to receive(:ready_task)
-      subject.ready_task
-    end
-
-    it 'can proxy graph task_get method' do
-      expect(subject.graph).to receive(:task_get).with(task1)
-      subject.task_get task1
+      expect(subject.inspect).to eq 'Node[node1] Status: offline Tasks: 0/1 CurrentTask: task1'
     end
   end
 

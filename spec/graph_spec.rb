@@ -1,16 +1,6 @@
 require 'rspec'
 
 describe Deployment::Graph do
-  before(:each) do
-    class Deployment::Graph
-      def log(mesage)
-      end
-    end
-    class Deployment::Task
-      def log(mesage)
-      end
-    end
-  end
 
   let(:node1) do
     Deployment::Node.new 'node1'
@@ -110,7 +100,7 @@ describe Deployment::Graph do
     it 'can add dependencies between tasks of the same graph by name' do
       subject.task_add task1_1
       subject.task_add task1_2
-      subject.dependency_add 'task1', 'task2'
+      subject.add_dependency 'task1', 'task2'
       expect(subject['task2'].dependency_present? task1_1).to eq true
     end
 
@@ -118,14 +108,14 @@ describe Deployment::Graph do
       subject.task_add task1_1
       subject.task_add task1_2
       expect do
-        subject.dependency_add 'task1', 'task3'
+        subject.add_dependency 'task1', 'task3'
       end.to raise_exception Deployment::NoSuchTask, /no such task in the graph/
     end
 
     it 'can add dependencies between task objects of the same graph' do
       subject.task_add task1_1
       subject.task_add task1_2
-      subject.dependency_add task1_1, task1_2
+      subject.add_dependency task1_1, task1_2
       expect(subject[task1_2].dependency_present? task1_1).to eq true
     end
 
@@ -134,7 +124,7 @@ describe Deployment::Graph do
       graph1.task_add task1_2
       graph2.task_add task2_1
       graph2.task_add task2_2
-      subject.dependency_add task1_2, task2_2
+      subject.add_dependency task1_2, task2_2
       expect(graph2[task2_2].dependency_present? task1_2).to eq true
     end
 
@@ -190,39 +180,67 @@ describe Deployment::Graph do
     it 'uses task dependencies to determine a runnable task' do
       subject.task_add task1_1
       subject.task_add task1_2
-      subject.dependency_add task1_1, task1_2
+      subject.add_dependency task1_1, task1_2
       expect(subject.ready_task).to eq task1_1
       task1_1.status = :successful
       expect(subject.ready_task).to eq task1_2
       task1_1.status = :failed
       expect(subject.ready_task).to be_nil
     end
+
+    it 'can count the total tasks number' do
+      subject.task_add task1_1
+      subject.task_add task1_2
+      expect(subject.tasks_total_count).to eq 2
+    end
+
+    it 'can count the failed tasks number' do
+      subject.task_add task1_1
+      subject.task_add task1_2
+      task1_2.status = :failed
+      expect(subject.tasks_failed_count).to eq 1
+    end
+
+    it 'can count the successful tasks number' do
+      subject.task_add task1_1
+      subject.task_add task1_2
+      task1_2.status = :successful
+      expect(subject.tasks_successful_count).to eq 1
+    end
+
+    it 'can count the finished tasks number' do
+      subject.task_add task1_1
+      subject.task_add task1_2
+      task1_2.status = :successful
+      expect(subject.tasks_finished_count).to eq 1
+      task1_2.status = :skipped
+      expect(subject.tasks_finished_count).to eq 1
+    end
+
+    it 'can count the pending tasks number' do
+      subject.task_add task1_1
+      subject.task_add task1_2
+      expect(subject.tasks_pending_count).to eq 2
+    end
   end
 
   context '#inspections' do
-    it 'can debug' do
-      expect(subject).to receive(:log).with('Graph[node1]: message')
-      subject.debug 'message'
-    end
-
-    it 'can log' do
-      expect(subject).to respond_to :log
-    end
 
     it 'can to_s' do
       expect(subject.to_s).to eq 'Graph[node1]'
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 0 Finished: true Failed: false Successful: true'
+      expect(subject.inspect).to eq 'Graph[node1] Tasks: 0/0 Finished: true Failed: false Successful: true'
       subject.task_add task1_1
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1 Finished: false Failed: false Successful: false'
+      expect(subject.inspect).to eq 'Graph[node1] Tasks: 0/1 Finished: false Failed: false Successful: false'
       task1_1.status = :successful
       subject.reset
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1 Finished: true Failed: false Successful: true'
+      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1/1 Finished: true Failed: false Successful: true'
       task1_1.status = :failed
       subject.reset
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1 Finished: true Failed: true Successful: false'
+      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1/1 Finished: true Failed: true Successful: false'
     end
+
   end
 end
