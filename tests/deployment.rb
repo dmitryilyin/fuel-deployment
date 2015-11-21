@@ -1,6 +1,7 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-PLOT = true
+PLOT = false
+FAIL = true
 
 node1_data = [
     [0, 1],
@@ -34,8 +35,38 @@ node2_data = [
     [6, 8],
 ]
 
-node1 = Deployment::TestNode.new 'node1'
-node2 = Deployment::TestNode.new 'node2'
+class Deployment::PlotProcess < Deployment::Process
+  # loop once through all nodes and process them
+  def process_all_nodes
+    debug 'Start processing all nodes'
+    each_node do |node|
+      process_node node
+      gv_load
+      gv_make_step_image
+    end
+  end
+end
+
+class Deployment::TestNodeWithFail < Deployment::TestNode
+  def poll
+    debug 'Poll node status'
+    if busy?
+      status = :successful
+      status = :failed if task.name == 'task4' and node.name == 'node2'
+      debug "#{task} finished with: #{status}"
+      self.task.status = status
+      self.status = :online
+    end
+  end
+end
+
+if FAIL
+  node1 = Deployment::TestNodeWithFail.new 'node1'
+  node2 = Deployment::TestNodeWithFail.new 'node2'
+else
+  node1 = Deployment::TestNode.new 'node1'
+  node2 = Deployment::TestNode.new 'node2'
+end
 
 node1_data.each do |task_from, task_to|
   task_from = node1.graph.create_task "task#{task_from}"
@@ -53,7 +84,12 @@ node2['task4'].depends node1['task3']
 node2['task5'].depends node1['task13']
 node1['task15'].depends node2['task6']
 
-deployment = Deployment::Process[node1, node2]
+if PLOT
+  deployment = Deployment::PlotProcess.new(node1, node2)
+else
+  deployment = Deployment::Process.new(node1, node2)
+end
+
 deployment.id = 'deployment'
 
 if PLOT

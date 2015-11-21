@@ -10,3 +10,7 @@ Gemfile.lock
 .rvmrc
 
 *.svg
+
+# yard
+doc
+.yardoc

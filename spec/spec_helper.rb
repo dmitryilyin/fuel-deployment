@@ -1,9 +1,6 @@
+require 'rubygems'
+require 'deployment'
 require 'rspec'
-require File.join File.dirname(__FILE__), '../lib/task'
-require File.join File.dirname(__FILE__), '../lib/node'
-require File.join File.dirname(__FILE__), '../lib/error'
-require File.join File.dirname(__FILE__), '../lib/graph'
-require File.join File.dirname(__FILE__), '../lib/process'
 
 Deployment::Log.logger.level = Logger::WARN
 

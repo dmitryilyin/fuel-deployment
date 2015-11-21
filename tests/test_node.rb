@@ -1,13 +1,9 @@
-lib_dir = File.join File.dirname(__FILE__), '../lib/'
+lib_dir = File.join File.dirname(__FILE__), '../lib'
 lib_dir = File.absolute_path File.expand_path lib_dir
 $LOAD_PATH << lib_dir
 
-require 'task'
-require 'node'
-require 'error'
-require 'graph'
-require 'process'
-require 'log'
+require 'rubygems'
+require 'deployment'
 
 Deployment::Log.logger.level = Logger::INFO
 

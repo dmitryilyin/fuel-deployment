@@ -277,11 +277,11 @@ describe Deployment::Task do
       subject.status = :failed
       expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: true DepsFailed: false'
       subject.dependency_backward_add task2
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: task2(node1)'
+      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2]'
       subject.dependency_backward_add task2_1
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: task2(node1), task1(node2)'
+      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2], Task[node2/task1]'
       subject.dependency_forward_add task2_2
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: task2(node1), task1(node2) Before: task2(node2)'
+      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2], Task[node2/task1] Before: Task[node2/task2]'
     end
   end
 
