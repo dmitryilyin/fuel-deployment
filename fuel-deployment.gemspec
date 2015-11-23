@@ -2,7 +2,7 @@ $:.unshift File.expand_path('lib', File.dirname(__FILE__))
 require 'fuel-deployment/version'
 
 Gem::Specification.new do |s|
-  s.name = 'deployment'
+  s.name = 'fuel-deployment'
   s.version = Deployment::VERSION
   s.licenses = 'Apache v2.0'
   s.summary = 'Task deployment engine for Astute'
