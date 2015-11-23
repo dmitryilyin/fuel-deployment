@@ -5,4 +5,10 @@
 module Deployment
   # The current module version
   VERSION = '0.0.2'
+
+  # Get the current module version
+  # @return [String]
+  def version
+    VERSION
+  end
 end

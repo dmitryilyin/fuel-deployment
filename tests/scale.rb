@@ -1,8 +1,10 @@
+#!/usr/bin/env ruby
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 TASK_NUMBER = 100
 NODE_NUMBER = 10
-PLOT = false
+
+PLOT = ARGV[0] == '1'
 
 def make_nodes
   1.upto(NODE_NUMBER).map do |node|

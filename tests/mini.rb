@@ -1,6 +1,7 @@
+#!/usr/bin/env ruby
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-PLOT = true
+PLOT = ARGV[0] == '1'
 
 node1 = Deployment::TestNode.new 'node1'
 

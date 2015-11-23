@@ -26,7 +26,7 @@ module Deployment
     attr_reader :node
     attr_reader :tasks
 
-    # reset the dependency status mnemoization of this task
+    # Reset the dependency status mnemoization of this task
     # @return [void]
     def reset
       @tasks_have_failed = false
@@ -34,14 +34,14 @@ module Deployment
       @tasks_are_successful = false
     end
 
-    # prepare the hash key from the task
+    # Prepare the hash key from the task
     # @param [Deployment::Task,String,Symbol] task
     def prepare_key(task)
       task = task.name if task.is_a? Deployment::Task
       task.to_s.to_sym
     end
 
-    # retrieve a task object from the graph
+    # Retrieve a task object from the graph
     # @param [String, Symbol] task_name The name of the task to retrieve
     # @return [Deployment::Task]
     def task_get(task_name)
@@ -50,9 +50,9 @@ module Deployment
     alias :get_task :task_get
     alias :[] :task_get
 
-    # add a new task object ot the graph
+    # Add an existing task object to the graph
     # @param [Deployment::Task] task a new task object
-    # @raise [Deployment::InvalidArgument] if the object is not a task or the task is not from this graph
+    # @raise [Deployment::InvalidArgument] If the object is not a task or the task is not from this graph
     # @return [Deployment::Task]
     def task_add(task)
       fail Deployment::InvalidArgument, "#{self}: Graph can add only tasks" unless task.is_a? Deployment::Task
@@ -66,19 +66,54 @@ module Deployment
     alias :add_vertex :task_add
     alias :vertex_add :task_add
 
-    # create a new task object by name
-    # @param [String, Symbol] task_name The name of the new task
+    # Create a new task object by its name and add it to the graph.
+    # Or, if the task already exists, return the existing object.
+    # Assigns the data payload to the created or found task if this
+    # parameter is provided.
+    # @param [String, Symbol] task The name of the new task
     # @return [Deployment::Task]
-    def task_add_new(task_name)
-      return task_get task_name if task_present? task_name
-      task = Deployment::Task.new task_name, node
-      task_add task
+    def task_create(task, data=nil)
+      if task_present? task
+        task = task_get task
+      elsif task.is_a? Deployment::Task
+        task = task_add task
+      else
+        task = Deployment::Task.new task, node, data
+        task = task_add task
+      end
+      task.data = data if data
+      task
     end
-    alias :add_new_task :task_add_new
-    alias :new_task :task_add_new
-    alias :create_task :task_add_new
+    alias :create_task :task_create
+    alias :add_new_task :task_create
+    alias :task_add_new :task_create
+    alias :new_task :task_create
+    alias :task_new :task_create
 
-    # check if the task is present in the graph
+    # Create a new task object by name and add it into the graph.
+    # Then add backward dependencies and forward dependencies for this object.
+    # @param [String, Symbol, Deployment::Task] task_name The new task name
+    # @param [Object] data The task data payload
+    # @param [Array<String, Deployment::Task>] backward_deps The list of task names, this task depends on
+    # @param [Array<String, Deployment::Task>] forward_deps The list of task names that depend on this task
+    # @return [Deployment::Task]
+    def task_add_new_with_dependencies(task_name, data=nil, backward_deps=[], forward_deps=[])
+      task = task_create task_name, data
+      backward_deps = [backward_deps] unless backward_deps.is_a? Array
+      forward_deps = [forward_deps] unless forward_deps.is_a? Array
+      backward_deps.each do |dependency|
+        dependency = task_create dependency
+        add_dependency dependency, task
+      end
+      forward_deps.each do |dependency|
+        dependency = task_create dependency
+        add_dependency task, dependency
+      end
+      task
+    end
+    alias :add_new_task_with_dependencies :task_add_new_with_dependencies
+
+    # Check if the task is present in the graph
     # @param [Deployment::Task, String, Symbol] task_name
     # @return [true, false]
     def task_present?(task_name)
@@ -87,7 +122,7 @@ module Deployment
     alias :has_task? :task_present?
     alias :key? :task_present?
 
-    # remove a task from this graph
+    # Remove a task from this graph
     # @param [Deployment::Task, String, Symbol] task_name
     # @return [void]
     def task_remove(task_name)
@@ -97,7 +132,7 @@ module Deployment
     end
     alias :remove_task :task_remove
 
-    # add a dependency between tasks
+    # Add a dependency between tasks
     # @param [Deployment::Task, String, Symbol] task_from Graph edge from this task
     # @param [Deployment::Task, String, Symbol] task_to Graph edge to this task
     # @raise [Deployment::InvalidArgument] If you are referencing tasks by name
@@ -118,7 +153,7 @@ module Deployment
     alias :edge_add :add_dependency
     alias :add_edge :add_dependency
 
-    # set the node of this graph
+    # Set the node of this graph
     # @param [Deployment::Node] node A new node object
     # @raise [Deployment::InvalidArgument] If you pass a wrong object
     def node=(node)
@@ -126,20 +161,20 @@ module Deployment
       @node = node
     end
 
-    # return this graph's node name
+    # Return this graph's node name
     # @return [String]
     def name
       node.name
     end
 
-    # iterates through all tasks in this graph
+    # Iterate through all the tasks in this graph
     # @yield [Deployment::Task]
     def each_task(&block)
       tasks.each_value(&block)
     end
     alias :each :each_task
 
-    # check if all the tasks in this graph are finished
+    # Check if all the tasks in this graph are finished
     # memorises the positive result
     # @return [true, false]
     def tasks_are_finished?
@@ -155,7 +190,7 @@ module Deployment
     end
     alias :finished? :tasks_are_finished?
 
-    # check if all the tasks in this graph are successful
+    # Check if all the tasks in this graph are successful
     # memorises the positive result
     # @return [true, false]
     def tasks_are_successful?
@@ -172,7 +207,7 @@ module Deployment
     end
     alias :successful? :tasks_are_successful?
 
-    # check if some of the tasks in this graph are failed
+    # Check if some of the tasks in this graph are failed
     # memorises the positive result
     # @return [true, false]
     def tasks_have_failed?
@@ -188,7 +223,7 @@ module Deployment
     end
     alias :failed? :tasks_have_failed?
 
-    # find a task in the graph that has all dependencies met
+    # Find a task in the graph that has all dependencies met
     # and can be run right now
     # returns nil if there is no such task
     # @return [Deployment::Task, nil]
@@ -199,7 +234,7 @@ module Deployment
     end
     alias :next_task :ready_task
 
-    # get an array of task names
+    # Get an array of task names
     # @return [Array<String>]
     def task_names
       map do |task|
@@ -207,13 +242,13 @@ module Deployment
       end
     end
 
-    # count the total number of tasks
+    # Count the total number of tasks
     # @return [Integer]
     def tasks_total_count
       tasks.length
     end
 
-    # count the number of the finished tasks
+    # Count the number of the finished tasks
     # @return [Integer]
     def tasks_finished_count
       count do |task|
@@ -221,7 +256,7 @@ module Deployment
       end
     end
 
-    # count the number of the failed tasks
+    # Count the number of the failed tasks
     # @return [Integer]
     def tasks_failed_count
       count do |task|
@@ -229,7 +264,7 @@ module Deployment
       end
     end
 
-    # count the number of the successful tasks
+    # Count the number of the successful tasks
     # @return [Integer]
     def tasks_successful_count
       count do |task|
@@ -237,7 +272,7 @@ module Deployment
       end
     end
 
-    # count the number of the pending tasks
+    # Count the number of the pending tasks
     # @return [Integer]
     def tasks_pending_count
       count do |task|
@@ -245,7 +280,7 @@ module Deployment
       end
     end
 
-    # load the Graphviz module to visualize the graph
+    # Load the Graphviz module to visualize the graph
     def gv_load
       require 'deployment/gv'
       extend Deployment::GV

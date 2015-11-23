@@ -4,27 +4,28 @@ module Deployment
   # This module can be loaded to visualize the current graph as an image
   module GV
 
-    # set graph filter to one node
+    # Set graph filter to one node
     # @param [Deployment::Node] value
     def gv_filter_node=(value)
       @gv_filter_node = value
     end
 
-    # get the node filter
+    # Get the node filter
     # @return [Deployment::Node]
     def gv_filter_node
       @gv_filter_node
     end
 
-    # generate a name for the graph file
+    # Generate a name for the graph file
     # @return [String]
     def gv_graph_name
-      return name if respond_to? :name and name
-      return id if respond_to? :id and id
+      [:name, :id].each do |method|
+        return send method if respond_to? method and send method
+      end
       'graph'
     end
 
-    # choose a color for a task vertex
+    # Choose a color for a task vertex
     # according to the tasks status
     # @param [Deployment::Task] task
     # @return [Symbol]
@@ -48,15 +49,16 @@ module Deployment
       end
     end
 
-    # remove the saved object
+    # Remove the saved object
     def gv_reset
       @gv_object = nil
     end
 
-    # generate a GraphViz object with graph data
+    # Generate a GraphViz object with graph data
     # @return [GraphViz]
     def gv_object
       return @gv_object if @gv_object
+      return unless defined? GraphViz
       @gv_object = GraphViz.new gv_graph_name, :type => :digraph
       @gv_object.node_attrs[:style] = 'filled, solid'
 
@@ -76,7 +78,7 @@ module Deployment
       @gv_object
     end
 
-    # generate the graph representation in the dot language
+    # Generate the graph representation in the dot language
     # @return [String]
     def to_dot
       return unless gv_object
@@ -96,7 +98,7 @@ module Deployment
       file
     end
 
-    # write the graph state to image file
+    # Write the graph state to image file
     # @param [String] name File name
     def gv_make_image(name=nil)
       return unless gv_object

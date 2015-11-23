@@ -13,9 +13,9 @@ module Deployment
   # @attr [Deployment::Graph] graph The Graph assigned to this node
   # @attr [Numeric, String] id Misc id that can be used by this node
   class Node
-    # a node can have one of these statuses
+    # A node can have one of these statuses
     ALLOWED_STATUSES = [:online, :busy, :offline, :failed, :successful, :skipped]
-    # a node is considered finished with one of these statuses
+    # A node is considered finished with one of these statuses
     FINISHED_STATUSES = [:failed, :successful, :skipped]
 
     # @param [String, Symbol] name
@@ -38,7 +38,7 @@ module Deployment
     attr_reader :graph
     attr_accessor :id
 
-    # set a new status of this node
+    # Set a new status of this node
     # @param [Symbol, String] value
     # @raise [Deployment::InvalidArgument] if the status is not valid
     # @return [Symbol]
@@ -48,46 +48,46 @@ module Deployment
       @status = value
     end
 
-    # node have finished all its tasks
+    # The node have finished all its tasks
     # or has one of finished statuses
     # @return [true, false]
     def finished?
       FINISHED_STATUSES.include? status or tasks_are_finished?
     end
 
-    # node is online and can accept new tasks
+    # The node is online and can accept new tasks
     # @return [true, false]
     def online?
       status == :online
     end
 
-    # node is busy running a task
+    # The node is busy running a task
     # @return [true, false]
     def busy?
       status == :busy
     end
 
-    # node is offline and cannot accept tasks
+    # The node is offline and cannot accept tasks
     # @return [true, false]
     def offline?
       status == :offline
     end
 
-    # node has several failed tasks
-    # or a failed status
+    # The node has several failed tasks
+    # or has the failed status
     # @return [true, false]
     def failed?
       status == :failed or tasks_have_failed?
     end
 
-    # node has all successful tasks
-    # or successful status
+    # The node has all tasks successful
+    # or has the successful status
     # @return [true, false]
     def successful?
       status == :successful or tasks_are_successful?
     end
 
-    # node is skipped and will not get any tasks
+    # The node is skipped and will not get any tasks
     def skipped?
       status == :skipped
     end
@@ -99,13 +99,13 @@ module Deployment
       end
     end
 
-    # set the new name of this node
+    # Set the new name of this node
     # @param [String, Symbol] name
     def name=(name)
       @name = name.to_s
     end
 
-    # set the new current task of this node
+    # Set the new current task of this node
     # @param [Deployment::Task, nil] task
     # @raise [Deployment::InvalidArgument] if the object is not a task or nil or the task is not in this graph
     # @return [Deployment::Task]
@@ -118,7 +118,7 @@ module Deployment
     end
     alias :current_task= :task=
 
-    # set a new graph object
+    # Set a new graph object
     # @param [Deployment::Graph] graph
     # @return [Deployment::Graph]
     def graph=(graph)
@@ -127,7 +127,7 @@ module Deployment
       @graph = graph
     end
 
-    # create a new empty graph object for this node
+    # Create a new empty graph object for this node
     # @return [Deployment::Graph]
     def create_new_graph
       self.graph = Deployment::Graph.new(self)
@@ -147,19 +147,20 @@ module Deployment
       message
     end
 
-    # sends all unknown methods to the graph object
+    # Sends all unknown methods to the graph object
     def method_missing(method, *args, &block)
       graph.send method, *args, &block
     end
 
-    # run the task on this node
+    # Run the task on this node
     # @param [Deployment::Task] task
     # @abstract Should be implemented in a subclass
     def run(task)
+      debug "Run task: #{task}"
       raise Deployment::NotImplemented, 'This method is abstract and should be implemented in a subclass'
     end
 
-    # polls the status of the node
+    # Polls the status of the node
     # should update the node's status
     # and the status of the current task
     # @abstract Should be implemented in a subclass

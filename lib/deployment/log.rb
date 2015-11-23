@@ -6,14 +6,14 @@ module Deployment
   # @attr [Logger] logger
   module Log
 
-    # get the logger object
+    # Get the logger object
     # @return [Logger]
     def self.logger
       return @logger if @logger
       @logger = Logger.new STDOUT
     end
 
-    # set the logger object
+    # Set the logger object
     # @param [Logger] value
     # @raise Deployment::InvalidArgument if the object does not look like a logger
     # @return [Logger]
@@ -24,19 +24,19 @@ module Deployment
       @logger = value
     end
 
-    # log message with level: debug
+    # Log message with level: debug
     # @param [String] message
     def debug(message)
       Deployment::Log.logger.debug "#{self}: #{message}"
     end
 
-    # log message with level: warn
+    # Log message with level: warn
     # @param [String] message
     def warn(message)
       Deployment::Log.logger.warn "#{self}: #{message}"
     end
 
-    # log message with level: info
+    # Log message with level: info
     # @param [String] message
     def info(message)
       Deployment::Log.logger.info "#{self}: #{message}"

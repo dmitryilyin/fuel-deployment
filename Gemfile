@@ -1,5 +1,2 @@
-gem 'rspec'
-gem 'ruby-graphviz'
-gem 'yard'
-gem 'rake'
-gem 'pry'
+source 'https://rubygems.org'
+gemspec

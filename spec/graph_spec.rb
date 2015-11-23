@@ -57,9 +57,24 @@ describe Deployment::Graph do
 
   context '#tasks' do
     it 'can create a new task' do
-      subject.task_add_new 'new_task'
+      subject.task_create 'new_task'
       expect(subject.tasks.values.first.name).to eq 'new_task'
       expect(subject.tasks.values.first.node.name).to eq 'node1'
+    end
+
+    it 'can create a new task with data payload value' do
+      subject.task_create 'new_task', 'my_data'
+      expect(subject.tasks.values.first.name).to eq 'new_task'
+      expect(subject.tasks.values.first.node.name).to eq 'node1'
+      expect(subject.tasks.values.first.data).to eq 'my_data'
+    end
+
+    it 'creating an existing task will return it and update the data payload' do
+      subject.task_add task1_1
+      expect(subject['task1'].data).to be_nil
+      task = subject.task_create 'task1', 'my_data'
+      expect(task.data).to eq 'my_data'
+      expect(task).to eq subject['task1']
     end
 
     it 'can add an existing task' do
@@ -132,6 +147,22 @@ describe Deployment::Graph do
       subject.task_add task1_1
       subject.task_add task1_2
       expect(subject.each.to_a).to eq [task1_1, task1_2]
+    end
+
+    it 'can add a new task together with the list of its dependencies' do
+      subject.task_add_new_with_dependencies 'new_task', 'new_data', %w(bd1 bd2), %w(fd1 fd2)
+      expect(subject.tasks.length).to eq 5
+      expect(subject['new_task'].data).to eq 'new_data'
+      expect(subject['new_task'].dependency_backward_present? subject['bd1']).to eq true
+      expect(subject['new_task'].dependency_backward_present? subject['bd2']).to eq true
+      expect(subject['new_task'].dependency_forward_present? subject['fd1']).to eq true
+      expect(subject['new_task'].dependency_forward_present? subject['fd2']).to eq true
+    end
+
+    it 'can add a task together with the list of task object dependencies' do
+      subject.task_add_new_with_dependencies task1_2, 'data', [task1_1]
+      expect(subject.tasks.length).to eq 2
+      expect(task1_1.dependency_forward_present? task1_2).to eq true
     end
   end
 

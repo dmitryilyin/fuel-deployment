@@ -17,10 +17,12 @@ module Deployment
   # @attr_reader [Set<Deployment::Task>] backward_dependencies The Tasks required to run this task
   # @attr_reader [Set<Deployment::Task>] forward_dependencies The Tasks that require this Task to run
   # @attr [Object] data The data payload of this task
+  # @attr [Integer] maximum_concurrency The maximum number of this task's instances running on the different nodes at the same time
+  # @attr [Integer] current_concurrency The number of currently running task with the same name on all nodes
   class Task
-    # a task can be in one of these statuses
+    # A task can be in one of these statuses
     ALLOWED_STATUSES = [:pending, :successful, :failed, :skipped, :running]
-    # these statuses can cause dependency status to change
+    # These statuses can cause dependency status to change
     # and if one of them is set, reset all forward dependencies
     DEPENDENCY_CHANGING_STATUSES = [:failed, :successful, :skipped]
 
@@ -49,7 +51,7 @@ module Deployment
     attr_reader :forward_dependencies
     attr_accessor :data
 
-    # reset the mnemoization of the task
+    # Reset the mnemoization of the task
     # @return [void]
     def reset
       @dependencies_are_ready = nil
@@ -57,7 +59,7 @@ module Deployment
       reset_forward
     end
 
-    # reset the mnemoization of this task's forward dependencies
+    # Reset the mnemoization of this task's forward dependencies
     # @return [void]
     def reset_forward
       return unless dependency_forward_any?
@@ -66,7 +68,7 @@ module Deployment
       end
     end
 
-    # set this task's Node object
+    # Set this task's Node object
     # @param [Deployment::Node] node The ne node object
     # @raise [Deployment::InvalidArgument] if the object is not a Node
     # @return [Deployment::Node]
@@ -75,7 +77,7 @@ module Deployment
       @node = node
     end
 
-    # set the new task name
+    # Set the new task name
     # @param [String, Symbol] name
     # @return [String]
     def name=(name)
@@ -91,9 +93,136 @@ module Deployment
     def status=(value)
       value = value.to_s.to_sym
       fail Deployment::InvalidArgument, "#{self}: Invalid task status: #{value}" unless ALLOWED_STATUSES.include? value
+      status_changes_concurrency @status, value
       @status = value
       reset_forward if DEPENDENCY_CHANGING_STATUSES.include? value
       @status
+    end
+
+    # Get the current concurrency value for a given task
+    # or perform an action with this value.
+    # @param [Deployment::Task, String, Symbol] task
+    # @param [Symbol] action
+    # @option action [Symbol] :inc Increase the value
+    # @option action [Symbol] :dec Decrease the value
+    # @option action [Symbol] :reset Set the value to zero
+    # @option action [Symbol] :set Manually set the value
+    # @param [Integer] value Manually set to this value
+    # @return [Integer]
+    def self.current_concurrency(task, action = :get, value = nil)
+      @current_concurrency = {} unless @current_concurrency
+      task = task.name if task.is_a? Deployment::Task
+      key = task.to_sym
+      @current_concurrency[key] = 0 unless @current_concurrency[key]
+      return @current_concurrency[key] unless action
+      if action == :inc
+        @current_concurrency[key] += 1
+      elsif action == :dec
+        @current_concurrency[key] -= 1
+      elsif action == :reset
+        @current_concurrency[key] = 0
+      elsif action == :set
+        begin
+          @current_concurrency[key] = Integer(value)
+        rescue TypeError, ArgumentError
+          raise Deployment::InvalidArgument, "#{self}: Current concurrency should be an integer number"
+        end
+      end
+      @current_concurrency[key] = 0 if @current_concurrency[key] < 0
+      @current_concurrency[key]
+    end
+
+    # Get or set the maximumx concurrency value for a given task.
+    # Value is set if the second argument is provided.
+    # @param [Deployment::Task, String, Symbol] task
+    # @param [Integer, nil] value
+    # @return [Integer]
+    def self.maximum_concurrency(task, value = nil)
+      @maximum_concurrency = {} unless @maximum_concurrency
+      task = task.name if task.is_a? Deployment::Task
+      key = task.to_sym
+      @maximum_concurrency[key] = 0 unless @maximum_concurrency[key]
+      return @maximum_concurrency[key] unless value
+      begin
+        @maximum_concurrency[key] = Integer(value)
+      rescue TypeError, ArgumentError
+        raise Deployment::InvalidArgument, "#{self}: Maximum concurrency should be an integer number"
+      end
+      @maximum_concurrency[key]
+    end
+
+    # Get the maximum concurrency
+    # @return [Integer]
+    def maximum_concurrency
+      self.class.maximum_concurrency self
+    end
+
+    # Set the maximum concurrency
+    # @param [Integer] value
+    # @return [Integer]
+    def maximum_concurrency=(value)
+      self.class.maximum_concurrency self, value
+    end
+
+    # Increase or decrease the concurrency value
+    # when the task's status is changed.
+    # @param [Symbol] status_from
+    # @param [Symbol] status_to
+    # @return [void]
+    def status_changes_concurrency(status_from, status_to)
+      return unless maximum_concurrency_is_set?
+      if status_to == :running
+        current_concurrency_increase
+        info "Increasing concurrency to: #{current_concurrency}"
+      elsif status_from == :running
+        current_concurrency_decrease
+        info "Decreasing concurrency to: #{current_concurrency}"
+      end
+    end
+
+    # Get the current concurrency
+    # @return [Integer]
+    def current_concurrency
+      self.class.current_concurrency self
+    end
+
+    # Increase the current concurrency by one
+    # @return [Integer]
+    def current_concurrency_increase
+      self.class.current_concurrency self, :inc
+    end
+
+    # Decrease the current concurrency by one
+    # @return [Integer]
+    def current_concurrency_decrease
+      self.class.current_concurrency self, :dec
+    end
+
+    # Reset the current concurrency to zero
+    # @return [Integer]
+    def current_concurrency_reset
+      self.class.current_concurrency self, :reset
+    end
+
+    # Manually set the current concurrency value
+    # @param [Integer] value
+    # @return [Integer]
+    def current_concurrency=(value)
+      self.class.current_concurrency self, :set, value
+    end
+
+    # Check if there are concurrency slots available
+    # to run this task.
+    # @return [true, false]
+    def concurrency_available?
+      return true unless maximum_concurrency_is_set?
+      current_concurrency < maximum_concurrency
+    end
+
+    # Check if the maximum concurrency of this task is set
+    # @return [true, false]
+    def maximum_concurrency_is_set?
+      maximum_concurrency > 0
     end
 
     ALLOWED_STATUSES.each do |status|
@@ -103,7 +232,7 @@ module Deployment
       end
     end
 
-    # add a new backward dependency - the task, required to run this task
+    # Add a new backward dependency - the task, required to run this task
     # @param [Deployment::Task] task
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
@@ -120,7 +249,7 @@ module Deployment
     alias :dependency_add :dependency_backward_add
     alias :add_dependency :dependency_backward_add
 
-    # add a new forward dependency - the task, that requires this task to run
+    # Add a new forward dependency - the task, that requires this task to run
     # @param [Deployment::Task] task
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
@@ -152,7 +281,7 @@ module Deployment
     alias :dependency_remove :dependency_backward_remove
     alias :remove_dependency :dependency_backward_remove
 
-    # remove a forward dependency of this task
+    # Remove a forward dependency of this task
     # @param [Deployment::Task] task
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
@@ -167,7 +296,7 @@ module Deployment
     alias :remove_depended_on :dependency_forward_remove
     alias :remove_before :dependency_forward_remove
 
-    # check if this task is within the backward dependencies
+    # Check if this task is within the backward dependencies
     # @param [Deployment::Task] task
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
@@ -181,7 +310,7 @@ module Deployment
     alias :dependency_present? :dependency_backward_present?
     alias :has_dependency? :dependency_backward_present?
 
-    # check if this task is within the forward dependencies
+    # Check if this task is within the forward dependencies
     # @param [Deployment::Task] task
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
@@ -193,7 +322,7 @@ module Deployment
     alias :has_depended_on? :dependency_forward_present?
     alias :has_before? :dependency_forward_present?
 
-    # check if there are any backward dependencies
+    # Check if there are any backward dependencies
     # @return [true, false]
     def dependency_backward_any?
       backward_dependencies.any?
@@ -202,14 +331,14 @@ module Deployment
     alias :dependency_any? :dependency_backward_any?
     alias :any_dependency? :dependency_backward_any?
 
-    # check if there are any forward dependencies
+    # Check if there are any forward dependencies
     # @return [true, false]
     def dependency_forward_any?
       forward_dependencies.any?
     end
     alias :any_forward_dependencies? :dependency_forward_any?
 
-    # iterates through the backward dependencies
+    # Iterates through the backward dependencies
     # @yield [Deployment::Task]
     def each_backward_dependency(&block)
       backward_dependencies.each(&block)
@@ -217,7 +346,7 @@ module Deployment
     alias :each :each_backward_dependency
     alias :each_dependency :each_backward_dependency
 
-    # iterates through the forward dependencies
+    # Iterates through the forward dependencies
     # @yield [Deployment::Task]
     def each_forward_dependency(&block)
       forward_dependencies.each(&block)
@@ -251,45 +380,47 @@ module Deployment
       @dependencies_have_failed = failed.any?
     end
 
-    # task have finished, successful or not, and
+    # The task have finished, successful or not, and
     # will not run again in this deployment
     # @return [true, false]
     def finished?
       failed? or successful? or skipped?
     end
 
-    # task have successfully finished
+    # The task have successfully finished
     # @return [true, false]
     def successful?
       status == :successful
     end
 
-    # task have not run yet
+    # The task was not run yet
     # @return [true, false]
     def pending?
       status == :pending
     end
     alias :new? :pending?
 
-    # task is running right now
+    # The task is running right now
     # @return [true, false]
     def running?
       status == :running
     end
 
-    # task is manually skipped
+    # The task is manually skipped
     # @return [true, false]
     def skipped?
       status == :skipped
     end
 
-    # task is ready to run, it has all dependencies met and is pending
+    # The task is ready to run,
+    # it has all dependencies met and is in pending status
+    # If the task has maximum concurrency set, it is checked too.
     # @return [true, false]
     def ready?
-      pending? and not dependencies_have_failed? and dependencies_are_ready?
+      pending? and not dependencies_have_failed? and dependencies_are_ready? and concurrency_available?
     end
 
-    # this task have been run but unsuccessfully
+    # This task have been run but unsuccessfully
     # @return [true, false]
     def failed?
       status == :failed or dependencies_have_failed?
@@ -309,7 +440,7 @@ module Deployment
       message
     end
 
-    # get a sorted list of all this task's dependencies
+    # Get a sorted list of all this task's dependencies
     # @return [Array<String>]
     def dependency_backward_names
       names = []
@@ -320,7 +451,7 @@ module Deployment
     end
     alias :dependency_names :dependency_backward_names
 
-    # get a sorted list of all tasks that depend on this task
+    # Get a sorted list of all tasks that depend on this task
     # @return [Array<String>]
     def dependency_forward_names
       names = []
@@ -335,7 +466,7 @@ module Deployment
     # and set it's status to 'running'.
     def run
       info "Run on node: #{node}"
-      @status = :running
+      self.status = :running
       node.run self
     end
 

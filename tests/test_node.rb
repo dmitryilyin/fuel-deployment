@@ -26,4 +26,16 @@ module Deployment
       end
     end
   end
+
+  class PlotProcess < Process
+    # loop once through all nodes and process them
+    def process_all_nodes
+      debug 'Start processing all nodes'
+      each_node do |node|
+        process_node node
+        gv_load
+        gv_make_step_image
+      end
+    end
+  end
 end

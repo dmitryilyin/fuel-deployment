@@ -1,7 +1,8 @@
+#!/usr/bin/env ruby
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-PLOT = false
-FAIL = true
+PLOT = ARGV[0] == '1'
+FAIL = ARGV[1] == '1'
 
 node1_data = [
     [0, 1],
@@ -34,18 +35,6 @@ node2_data = [
     [5, 7],
     [6, 8],
 ]
-
-class Deployment::PlotProcess < Deployment::Process
-  # loop once through all nodes and process them
-  def process_all_nodes
-    debug 'Start processing all nodes'
-    each_node do |node|
-      process_node node
-      gv_load
-      gv_make_step_image
-    end
-  end
-end
 
 class Deployment::TestNodeWithFail < Deployment::TestNode
   def poll

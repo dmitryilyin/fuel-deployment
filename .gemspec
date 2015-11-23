@@ -10,6 +10,12 @@ Gem::Specification.new do |s|
   s.email = 'dilyin@mirantis.com'
   s.homepage = 'http://mirantis.com'
 
+  s.add_development_dependency 'rspec'
+  s.add_development_dependency 'ruby-graphviz'
+  s.add_development_dependency 'yard'
+  s.add_development_dependency 'rake'
+  s.add_development_dependency 'ruby-lint'
+
   s.files = Dir.glob %w(lib/*.rb lib/deployment/*.rb)
   s.require_paths = 'lib'
 end

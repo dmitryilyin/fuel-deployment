@@ -19,12 +19,13 @@ module Deployment
     attr_reader :nodes
     attr_accessor :id
 
+    # Create the Process object with these nodes
     # @param [Array<Deployment::Node>] nodes The array of nodes to deploy
     def self.[](*nodes)
-      self.new *nodes
+      self.new(*nodes)
     end
 
-    # set a new nodes array
+    # Set a new nodes array
     # @raise Deployment::InvalidArgument If this is not an array or it consists not only of Nodes
     # @param [Array<Deployment::Node>] nodes The array of nodes to deploy
     # @return Deployment::Node
@@ -34,14 +35,14 @@ module Deployment
       @nodes = nodes
     end
 
-    # iterate through all nodes
+    # Iterates through all nodes
     # @yield Deployment::Node
     def each_node(&block)
       nodes.each(&block)
     end
     alias :each :each_node
 
-    # iterates through all the tasks on all nodes
+    # Iterates through all the tasks on all nodes
     # @yield Deployment::Task
     def each_task
       return to_enum(:each_task) unless block_given?
@@ -57,6 +58,7 @@ module Deployment
     # Then try to get a next task from the node and run it, or leave, if
     # there is none available.
     # @param [Deployment::Node] node
+    # @return [void]
     def process_node(node)
       debug "Process node: #{node}"
       node.poll
@@ -66,7 +68,8 @@ module Deployment
       ready_task.run
     end
 
-    # loop once through all nodes and process them
+    # Loops once through all nodes and processes each one
+    # @return [void]
     def process_all_nodes
       debug 'Start processing all nodes'
       each_node do |node|
@@ -96,7 +99,7 @@ module Deployment
       end
     end
 
-    # check if all nodes are finished
+    # Check if all nodes are finished
     # @return [true, false]
     def all_nodes_are_finished?
       all? do |node|
@@ -104,7 +107,7 @@ module Deployment
       end
     end
 
-    # check if all nodes are successful
+    # Check if all nodes are successful
     # @return [true, false]
     def all_nodes_are_successful?
       all? do |node|
@@ -112,7 +115,7 @@ module Deployment
       end
     end
 
-    # check if some nodes are failed
+    # Check if some nodes are failed
     # @return [true, false]
     def some_nodes_are_failed?
       any? do |node|
@@ -120,7 +123,7 @@ module Deployment
       end
     end
 
-    # count the total task number on all nodes
+    # Count the total task number on all nodes
     # @return [Integer]
     def tasks_total_count
       inject(0) do |sum, node|
@@ -128,7 +131,7 @@ module Deployment
       end
     end
 
-    # count the total number of the failed tasks
+    # Count the total number of the failed tasks
     # @return [Integer]
     def tasks_failed_count
       inject(0) do |sum, node|
@@ -136,7 +139,7 @@ module Deployment
       end
     end
 
-    # count the total number of the successful tasks
+    # Count the total number of the successful tasks
     # @return [Integer]
     def tasks_successful_count
       inject(0) do |sum, node|
@@ -144,7 +147,7 @@ module Deployment
       end
     end
 
-    # count the total number of the finished tasks
+    # Count the total number of the finished tasks
     # @return [Integer]
     def tasks_finished_count
       inject(0) do |sum, node|
@@ -152,7 +155,7 @@ module Deployment
       end
     end
 
-    # count the total number of the pending tasks
+    # Count the total number of the pending tasks
     # @return [Integer]
     def tasks_pending_count
       inject(0) do |sum, node|
@@ -160,7 +163,7 @@ module Deployment
       end
     end
 
-    # load the Graphviz module to visualize the deployment
+    # Load the Graphviz module to visualize the deployment
     def gv_load
       require 'deployment/gv'
       extend Deployment::GV
