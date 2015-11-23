@@ -3,7 +3,7 @@ lib_dir = File.absolute_path File.expand_path lib_dir
 $LOAD_PATH << lib_dir
 
 require 'rubygems'
-require 'deployment'
+require 'fuel-deployment'
 
 Deployment::Log.logger.level = Logger::INFO
 

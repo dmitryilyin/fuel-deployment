@@ -103,8 +103,8 @@ module Deployment
     def gv_make_image(name=nil)
       return unless gv_object
       name = gv_object.name unless name
-      file = "#{name}.svg"
-      gv_object.output(:svg => file)
+      file = "#{name}.png"
+      gv_object.output(:png => file)
       file
     end
   end

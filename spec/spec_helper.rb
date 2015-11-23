@@ -1,5 +1,5 @@
 require 'rubygems'
-require 'deployment'
+require 'fuel-deployment'
 require 'rspec'
 
 Deployment::Log.logger.level = Logger::WARN

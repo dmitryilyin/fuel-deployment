@@ -1,5 +1,5 @@
 $:.unshift File.expand_path('lib', File.dirname(__FILE__))
-require 'deployment/version'
+require 'fuel-deployment/version'
 
 Gem::Specification.new do |s|
   s.name = 'deployment'
