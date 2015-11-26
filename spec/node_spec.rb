@@ -33,6 +33,24 @@ describe Deployment::Node do
       expect(subject.id).to eq 'node1'
     end
 
+    it 'should have critical' do
+      expect(subject.critical).to eq false
+      expect(subject.critical?).to eq false
+    end
+
+    it 'can set critical' do
+      subject.critical = true
+      expect(subject.critical?).to eq true
+      subject.critical = nil
+      expect(subject.critical?).to eq false
+      subject.set_critical
+      expect(subject.critical?).to eq true
+      subject.set_normal
+      expect(subject.critical?).to eq false
+      subject.critical = 'yes'
+      expect(subject.critical?).to eq true
+    end
+
     it 'can set a name' do
       subject.name = 'node2'
       expect(subject.name).to eq 'node2'

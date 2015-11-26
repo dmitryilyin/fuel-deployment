@@ -3,6 +3,7 @@ require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 PLOT = ARGV[0] == '1'
 FAIL = ARGV[1] == '1'
+CRIT = ARGV[2] == '1'
 
 node1_data = [
     [0, 1],
@@ -56,6 +57,8 @@ else
   node1 = Deployment::TestNode.new 'node1'
   node2 = Deployment::TestNode.new 'node2'
 end
+
+node2.set_critical if CRIT
 
 node1_data.each do |task_from, task_to|
   task_from = node1.graph.create_task "task#{task_from}"

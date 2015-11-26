@@ -12,6 +12,8 @@ module Deployment
   # @attr [Deployment::Task] task The currently running task of this node
   # @attr [Deployment::Graph] graph The Graph assigned to this node
   # @attr [Numeric, String] id Misc id that can be used by this node
+  # @attr [true, false] critical This node is critical for the deployment
+  # and the deployment is considered failed if this node is failed
   class Node
     # A node can have one of these statuses
     ALLOWED_STATUSES = [:online, :busy, :offline, :failed, :successful, :skipped]
@@ -24,6 +26,7 @@ module Deployment
       @name = name
       @status = :online
       @task = nil
+      @critical = false
       @id = id || self.name
       create_new_graph
     end
@@ -37,6 +40,8 @@ module Deployment
     alias :current_task :task
     attr_reader :graph
     attr_accessor :id
+    attr_reader :critical
+    alias :critical? :critical
 
     # Set a new status of this node
     # @param [Symbol, String] value
@@ -46,6 +51,25 @@ module Deployment
       value = value.to_sym
       fail Deployment::InvalidArgument, "#{self}: Invalid node status: #{value}" unless ALLOWED_STATUSES.include? value
       @status = value
+    end
+
+    # Set the critical property of this node
+    # @param [true, false] value
+    # @return [true, false]
+    def critical=(value)
+      @critical = !!value
+    end
+
+    # Set this node to be a critical node
+    # @return [true]
+    def set_critical
+      self.critical = true
+    end
+
+    # Set this node to be a normal node
+    # @return [false]
+    def set_normal
+      self.critical = false
     end
 
     # The node have finished all its tasks

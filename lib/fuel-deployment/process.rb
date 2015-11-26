@@ -88,15 +88,62 @@ module Deployment
       info 'Starting the deployment process'
       loop do
         if all_nodes_are_successful?
-          info 'All nodes are deployed successfully - Stopping the deployment process'
+          info 'All nodes are deployed successfully. Stopping the deployment process'
           break true
         end
+        if has_failed_critical_nodes?
+          failed_names = failed_critical_nodes.map { |n| n.name }.join ', '
+          info "Critical nodes failed: #{failed_names}. Stopping the deployment process."
+          break false
+        end
         if all_nodes_are_finished?
-          info 'All nodes are finished with different statuses - Stopping the deployment process'
+          if has_failed_nodes?
+            failed_names = failed_nodes.map { |n| n.name }.join ', '
+            info "All nodes are finished and some have failed: #{failed_names}. Stopping the deployment process."
+          else
+            info 'All nodes are finished. Stopping the deployment process.'
+          end
           break false
         end
         process_all_nodes
       end
+    end
+
+    # Get the list of critical nodes
+    # @return [Array<Deployment::Node>]
+    def critical_nodes
+      select do |node|
+        node.critical?
+      end
+    end
+
+    # Get the list of critical nodes that have failed
+    # @return [Array<Deployment::Node>]
+    def failed_critical_nodes
+      critical_nodes.select do |node|
+        node.failed?
+      end
+    end
+
+    # Check if there are some critical nodes
+    # that have failed
+    # @return [true, false]
+    def has_failed_critical_nodes?
+      failed_critical_nodes.any?
+    end
+
+    # Get the list of the failed nodes
+    # @return [Array<Deployment::Node>]
+    def failed_nodes
+      select do |node|
+        node.failed?
+      end
+    end
+
+    # Check if some nodes are failed
+    # @return [true, false]
+    def has_failed_nodes?
+      failed_nodes.any?
     end
 
     # Check if all nodes are finished
@@ -112,14 +159,6 @@ module Deployment
     def all_nodes_are_successful?
       all? do |node|
         node.successful?
-      end
-    end
-
-    # Check if some nodes are failed
-    # @return [true, false]
-    def some_nodes_are_failed?
-      any? do |node|
-        node.failed?
       end
     end
 

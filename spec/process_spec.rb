@@ -96,14 +96,40 @@ describe Deployment::Node do
       expect(subject.all_nodes_are_successful?).to eq true
     end
 
-    it 'can check if some nodes are failed' do
+    it 'can find failed nodes' do
       task1_1.status = :successful
       task1_2.status = :successful
       task2_1.status = :successful
       task2_2.status = :pending
-      expect(subject.some_nodes_are_failed?).to eq false
+      expect(subject.failed_nodes).to eq([])
+      expect(subject.has_failed_nodes?).to eq false
       task2_2.status = :failed
-      expect(subject.some_nodes_are_failed?).to eq true
+      expect(subject.failed_nodes).to eq([node2])
+      expect(subject.has_failed_nodes?).to eq true
+    end
+
+    it 'can find critical nodes' do
+      expect(subject.critical_nodes).to eq([])
+      node1.critical = true
+      expect(subject.critical_nodes).to eq([node1])
+    end
+
+    it 'can find failed critical nodes' do
+      expect(subject.failed_critical_nodes).to eq([])
+      expect(subject.has_failed_critical_nodes?).to eq false
+      node1.critical = true
+      expect(subject.failed_critical_nodes).to eq([])
+      expect(subject.has_failed_critical_nodes?).to eq false
+      task1_1.status = :failed
+      expect(subject.failed_critical_nodes).to eq([node1])
+      expect(subject.has_failed_critical_nodes?).to eq true
+      task1_1.status = :pending
+      node1.status = :failed
+      expect(subject.failed_critical_nodes).to eq([node1])
+      expect(subject.has_failed_critical_nodes?).to eq true
+      node2.status = :failed
+      expect(subject.failed_critical_nodes).to eq([node1])
+      expect(subject.has_failed_critical_nodes?).to eq true
     end
 
     it 'can count the total tasks number' do
