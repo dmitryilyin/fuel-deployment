@@ -238,6 +238,7 @@ module Deployment
     # @return [Deployment::Task]
     def dependency_backward_add(task)
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      return task if task == self
       backward_dependencies.add task
       task.forward_dependencies.add self
       reset
@@ -255,6 +256,7 @@ module Deployment
     # @return [Deployment::Task]
     def dependency_forward_add(task)
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      return task if task == self
       forward_dependencies.add task
       task.backward_dependencies.add self
       reset

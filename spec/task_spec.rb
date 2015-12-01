@@ -112,6 +112,13 @@ describe Deployment::Task do
       end.to raise_error Deployment::InvalidArgument, /should be a task/
     end
 
+    it 'will not try to add dependency to self' do
+      task1.dependency_backward_add task1
+      expect(task1.dependency_backward_present? task1).to eq false
+      task1.dependency_forward_add task1
+      expect(task1.dependency_forward_present? task1).to eq false
+    end
+
     it 'can determine if there are backward dependencies' do
       expect(subject.dependency_backward_any?).to eq false
       subject.dependency_backward_add task2
