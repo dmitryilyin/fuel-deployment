@@ -135,12 +135,12 @@ describe Deployment::Node do
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Node[node1] Status: online Tasks: 0/0'
+      expect(subject.inspect).to eq 'Node[node1]{Status: online Tasks: 0/0}'
       subject.status = :offline
-      expect(subject.inspect).to eq 'Node[node1] Status: offline Tasks: 0/0'
+      expect(subject.inspect).to eq 'Node[node1]{Status: offline Tasks: 0/0}'
       subject.add_task task1
       subject.task = task1
-      expect(subject.inspect).to eq 'Node[node1] Status: offline Tasks: 0/1 CurrentTask: task1'
+      expect(subject.inspect).to eq 'Node[node1]{Status: offline Tasks: 0/1 CurrentTask: task1}'
     end
   end
 

@@ -16,7 +16,6 @@ deployment = Deployment::Process[node1]
 deployment.id = 'mini'
 
 if PLOT
-  deployment.gv_load
   deployment.gv_make_image
 end
 

@@ -42,7 +42,6 @@ node1['task1'].maximum_concurrency = 2
 node1['final'].maximum_concurrency = 1
 
 if PLOT
-  deployment.gv_load
   deployment.gv_make_image
 end
 

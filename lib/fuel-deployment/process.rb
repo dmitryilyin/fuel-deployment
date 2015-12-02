@@ -1,3 +1,5 @@
+require 'fuel-deployment/gv'
+
 module Deployment
 
   # The Process object controls the deployment flow.
@@ -15,6 +17,7 @@ module Deployment
 
     include Enumerable
     include Deployment::Log
+    include Deployment::GV
 
     attr_reader :nodes
     attr_accessor :id
@@ -53,6 +56,34 @@ module Deployment
       end
     end
 
+    # Check if graphs have a closed loop
+    # @return [true, false]
+    def has_loop?
+      begin
+        topology_sort
+        false
+      rescue Deployment::LoopDetected
+        true
+      end
+    end
+
+    # Topology sort all tasks in all graphs
+    # Tarjan's algorithm
+    # @return [Array<Deployment::Task>]
+    # @raise
+    def topology_sort
+      marks =  {}
+      topology = []
+      loop do
+        task = each_task.find do |task|
+          not marks.key? task
+        end
+        return topology unless task
+        task.dfs_forward topology, marks
+      end
+      topology
+    end
+
     # Process a single node when it's visited.
     # First, poll the node's status nad leave it the node is not ready.
     # Then try to get a next task from the node and run it, or leave, if
@@ -86,6 +117,8 @@ module Deployment
     # @return [true, false]
     def run
       info 'Starting the deployment process'
+      topology_sort
+
       loop do
         if all_nodes_are_successful?
           info 'All nodes are deployed successfully. Stopping the deployment process'
@@ -105,6 +138,8 @@ module Deployment
           end
           break false
         end
+
+        # run loop over all nodes
         process_all_nodes
       end
     end
@@ -204,7 +239,7 @@ module Deployment
 
     # Load the Graphviz module to visualize the deployment
     def gv_load
-      require 'deployment/gv'
+      require 'fuel-deployment/gv'
       extend Deployment::GV
       self.gv_filter_node = nil
     end
@@ -217,7 +252,7 @@ module Deployment
     # @return [String]
     def inspect
       message = "#{self}"
-      message += " Tasks: #{tasks_finished_count}/#{tasks_total_count} Nodes: #{map { |node| node.name }.join ', '}" if nodes.any?
+      message += "{Tasks: #{tasks_finished_count}/#{tasks_total_count} Nodes: #{map { |node| node.name }.join ', '}}" if nodes.any?
       message
     end
 

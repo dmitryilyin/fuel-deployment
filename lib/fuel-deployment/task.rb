@@ -21,10 +21,15 @@ module Deployment
   # @attr [Integer] current_concurrency The number of currently running task with the same name on all nodes
   class Task
     # A task can be in one of these statuses
-    ALLOWED_STATUSES = [:pending, :successful, :failed, :skipped, :running]
-    # These statuses can cause dependency status to change
-    # and if one of them is set, reset all forward dependencies
-    DEPENDENCY_CHANGING_STATUSES = [:failed, :successful, :skipped]
+    ALLOWED_STATUSES = [:pending, :successful, :failed, :dep_failed, :skipped, :running, :ready]
+    # Task have not run yet
+    NOT_RUN_STATUSES = [:pending, :ready]
+    # Task is failed or dependencies have failed
+    FAILED_STATUSES = [:failed, :dep_failed]
+    # Task is finished without an error
+    SUCCESS_STATUSES = [:successful, :skipped]
+    # Task is finished, successful or not
+    FINISHED_STATUSES = FAILED_STATUSES + SUCCESS_STATUSES
 
     # @param [String,Symbol] name The name of this task
     # @param [Deployment::Node] node The task will be assigned to this node
@@ -35,8 +40,6 @@ module Deployment
       @status = :pending
       @backward_dependencies = Set.new
       @forward_dependencies = Set.new
-      @dependencies_are_ready = nil
-      @dependencies_have_failed = nil
       @data = data
       self.node = node
     end
@@ -51,21 +54,36 @@ module Deployment
     attr_reader :forward_dependencies
     attr_accessor :data
 
-    # Reset the mnemoization of the task
-    # @return [void]
-    def reset
-      @dependencies_are_ready = nil
-      @dependencies_have_failed = nil
-      reset_forward
+    # Walk forward dependencies with Depth First Search algorithm
+    # @return [Array<Deployment::Task>]
+    # @raise Deployment::LoopDetected if a loop is detected
+    def dfs_forward(topology=[], marks={})
+      if marks[self] == :grey
+        raise Deployment::LoopDetected, "#{self}: have already been visited! Loop detected!"
+      end
+      return if marks[self]
+      marks[self] = :grey
+      each_forward_dependency do |task|
+        task.dfs_forward topology, marks
+      end
+      marks[self] = :black
+      topology.insert 0, self
     end
 
-    # Reset the mnemoization of this task's forward dependencies
-    # @return [void]
-    def reset_forward
-      return unless dependency_forward_any?
-      each_forward_dependency do |task|
-        task.reset
+    # Walk backward dependencies with Depth First Search algorithm
+    # @return [Array<Deployment::Task>]
+    # @raise Deployment::LoopDetected if a loop is detected
+    def dfs_backward(topology=[], marks={})
+      if marks[self] == :grey
+        raise Deployment::LoopDetected, "#{self}: have already been visited! Loop detected!"
       end
+      return if marks[self]
+      marks[self] = :grey
+      each_backward_dependency do |task|
+        task.dfs_backward topology, marks
+      end
+      marks[self] = :black
+      topology.insert 0, self
     end
 
     # Set this task's Node object
@@ -73,7 +91,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the object is not a Node
     # @return [Deployment::Node]
     def node=(node)
-      fail Deployment::InvalidArgument, "#{self}: Not a node used instead of the task node" unless node.is_a? Deployment::Node
+      raise Deployment::InvalidArgument, "#{self}: Not a node used instead of the task node" unless node.is_a? Deployment::Node
       @node = node
     end
 
@@ -92,11 +110,11 @@ module Deployment
     # @return [Symbol]
     def status=(value)
       value = value.to_s.to_sym
-      fail Deployment::InvalidArgument, "#{self}: Invalid task status: #{value}" unless ALLOWED_STATUSES.include? value
+      raise Deployment::InvalidArgument, "#{self}: Invalid task status: #{value}" unless ALLOWED_STATUSES.include? value
       status_changes_concurrency @status, value
       @status = value
-      reset_forward if DEPENDENCY_CHANGING_STATUSES.include? value
-      @status
+      poll_forward if FINISHED_STATUSES.include? value
+      value
     end
 
     # Get the current concurrency value for a given task
@@ -119,7 +137,7 @@ module Deployment
         @current_concurrency[key] += 1
       elsif action == :dec
         @current_concurrency[key] -= 1
-      elsif action == :reset
+      elsif action == :zero
         @current_concurrency[key] = 0
       elsif action == :set
         begin
@@ -132,7 +150,7 @@ module Deployment
       @current_concurrency[key]
     end
 
-    # Get or set the maximumx concurrency value for a given task.
+    # Get or set the maximum concurrency value for a given task.
     # Value is set if the second argument is provided.
     # @param [Deployment::Task, String, Symbol] task
     # @param [Integer, nil] value
@@ -200,8 +218,8 @@ module Deployment
 
     # Reset the current concurrency to zero
     # @return [Integer]
-    def current_concurrency_reset
-      self.class.current_concurrency self, :reset
+    def current_concurrency_zero
+      self.class.current_concurrency self, :zero
     end
 
     # Manually set the current concurrency value
@@ -241,7 +259,7 @@ module Deployment
       return task if task == self
       backward_dependencies.add task
       task.forward_dependencies.add self
-      reset
+      #reset
       task
     end
     alias :requires :dependency_backward_add
@@ -259,7 +277,7 @@ module Deployment
       return task if task == self
       forward_dependencies.add task
       task.backward_dependencies.add self
-      reset
+      #reset
       task
     end
     alias :is_required :dependency_forward_add
@@ -274,7 +292,6 @@ module Deployment
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
       backward_dependencies.delete task
       task.forward_dependencies.delete self
-      reset
       task
     end
     alias :remove_requires :dependency_backward_remove
@@ -291,7 +308,6 @@ module Deployment
       fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
       forward_dependencies.delete task
       task.backward_dependencies.delete self
-      reset
       task
     end
     alias :remove_is_required :dependency_forward_remove
@@ -354,39 +370,54 @@ module Deployment
       forward_dependencies.each(&block)
     end
 
-    # Check if all backward dependencies of this task are ready
-    # so that this task can run.
-    # The result is memorised until the task is reset.
-    # Dependency is considered met if the task is successful or skipped
+    # Check if any of direct backward dependencies of this
+    # task are failed and set dep_failed status if so.
     # @return [true, false]
-    def dependencies_are_ready?
-      return @dependencies_are_ready unless @dependencies_are_ready.nil?
-      return false if @dependencies_have_failed
-      ready = all? do |task|
-        task.successful? or task.skipped?
+    def check_for_failed_dependencies
+      return false if FAILED_STATUSES.include? status
+      failed = each_backward_dependency.any? do |task|
+        FAILED_STATUSES.include? task.status
       end
-      debug 'All dependencies are ready' if ready
-      @dependencies_are_ready = ready
+      self.status = :dep_failed if failed
+      failed
     end
 
-    # Check if all some backward dependencies are failed
-    # so that this task can run.
-    # The result is memorised until the task is reset.
+    # Check if all direct backward dependencies of this task
+    # are in success status and set task to ready if so and task is pending.
     # @return [true, false]
-    def dependencies_have_failed?
-      return @dependencies_have_failed unless @dependencies_have_failed.nil?
-      failed = select do |task|
-        task.failed?
+    def check_for_ready_dependencies
+      return false unless status == :pending
+      ready = each_backward_dependency.all? do |task|
+        SUCCESS_STATUSES.include? task.status
       end
-      debug "Found failed dependencies: #{failed.map { |t| t.name }.join ', '}" if failed.any?
-      @dependencies_have_failed = failed.any?
+      self.status = :ready if ready
+      ready
+    end
+
+    # Poll direct task dependencies if
+    # the failed or ready status of this task should change
+    def poll_dependencies
+      check_for_ready_dependencies
+      check_for_failed_dependencies
+    end
+    alias :poll :poll_dependencies
+
+    # Ask forward dependencies to check if their
+    # status should be updated bue to change in this
+    # task's status.
+    def poll_forward
+      each_forward_dependency do |task|
+        task.check_for_ready_dependencies
+        task.check_for_failed_dependencies
+      end
     end
 
     # The task have finished, successful or not, and
     # will not run again in this deployment
     # @return [true, false]
     def finished?
-      failed? or successful? or skipped?
+      poll_dependencies
+      FINISHED_STATUSES.include? status
     end
 
     # The task have successfully finished
@@ -400,7 +431,12 @@ module Deployment
     def pending?
       status == :pending
     end
-    alias :new? :pending?
+
+    # The task have not run yet
+    # @return [true, false]
+    def new?
+      NOT_RUN_STATUSES.include? status
+    end
 
     # The task is running right now
     # @return [true, false]
@@ -419,27 +455,28 @@ module Deployment
     # If the task has maximum concurrency set, it is checked too.
     # @return [true, false]
     def ready?
-      pending? and not dependencies_have_failed? and dependencies_are_ready? and concurrency_available?
+      poll_dependencies
+      status == :ready
     end
 
     # This task have been run but unsuccessfully
     # @return [true, false]
     def failed?
-      status == :failed or dependencies_have_failed?
+      poll_dependencies
+      FAILED_STATUSES.include? status
     end
 
     # @return [String]
     def to_s
-      "Task[#{node.name}/#{name}]"
+      "Task[#{name}/#{node.name}]"
     end
 
     # @return [String]
     def inspect
-      message = "#{self}"
-      message += " Status: #{status} DepsReady: #{dependencies_are_ready?} DepsFailed: #{dependencies_have_failed?}"
+      message = "#{self}{Status: #{status}"
       message += " After: #{dependency_backward_names.join ', '}" if dependency_backward_any?
       message += " Before: #{dependency_forward_names.join ', '}" if dependency_forward_any?
-      message
+      message + '}'
     end
 
     # Get a sorted list of all this task's dependencies

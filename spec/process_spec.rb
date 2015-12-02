@@ -173,7 +173,7 @@ describe Deployment::Node do
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Process[1] Tasks: 0/4 Nodes: node1, node2'
+      expect(subject.inspect).to eq 'Process[1]{Tasks: 0/4 Nodes: node1, node2}'
     end
   end
 end

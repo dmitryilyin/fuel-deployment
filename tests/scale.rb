@@ -2,9 +2,11 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 TASK_NUMBER = 100
-NODE_NUMBER = 10
+NODE_NUMBER = 100
 
 PLOT = ARGV[0] == '1'
+
+Deployment::Log.logger.level = Logger::WARN
 
 def make_nodes
   1.upto(NODE_NUMBER).map do |node|
@@ -13,7 +15,6 @@ def make_nodes
 end
 
 def make_tasks(node)
-  p node
   previous_task = nil
   1.upto(TASK_NUMBER).each do |number|
     task = "task#{number}"
@@ -45,7 +46,6 @@ deployment = Deployment::Process[*nodes]
 deployment.id = 'scale'
 
 if PLOT
-  deployment.gv_load
   deployment.gv_make_image
 end
 

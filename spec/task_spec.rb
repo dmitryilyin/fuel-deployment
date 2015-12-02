@@ -74,8 +74,8 @@ describe Deployment::Task do
       subject.status = 'failed'
       expect(subject.status).to eq :failed
       expect do
-        subject.status = 'ready'
-      end.to raise_exception Deployment::InvalidArgument, /Invalid task status/
+        subject.status = 'on'
+      end.to raise_error Deployment::InvalidArgument, /Invalid task status/
     end
 
     it 'can set data' do
@@ -188,12 +188,12 @@ describe Deployment::Task do
   context '#dependencies advanced' do
     it 'dependencies are met if there are no dependencies' do
       expect(task1.dependency_backward_any?).to eq false
-      expect(task1.dependencies_are_ready?).to eq true
+      expect(task1.ready?).to eq true
     end
 
     it 'there are no dependency errors if there are no dependencies' do
       expect(task1.dependency_backward_any?).to eq false
-      expect(task1.dependencies_have_failed?).to eq false
+      expect(task1.failed?).to eq false
     end
 
     it 'can detect that task is ready to run by its status' do
@@ -221,54 +221,32 @@ describe Deployment::Task do
 
     it 'can detect that task is ready by dependencies' do
       task1.dependency_backward_add task2
-      expect(task1.dependencies_are_ready?).to eq false
       expect(task1.ready?).to eq false
       task2.status = :successful
-      expect(task1.dependencies_are_ready?).to eq true
       expect(task1.ready?).to eq true
-      task1.dependency_backward_add task3
-      expect(task1.dependencies_are_ready?).to eq false
-      expect(task1.ready?).to eq false
     end
 
     it 'can detect that direct dependencies are failed' do
       task1.dependency_backward_add task2
-      expect(task1.dependencies_have_failed?).to eq false
-      expect(task2.dependencies_have_failed?).to eq false
       expect(task1.failed?).to eq false
       expect(task2.failed?).to eq false
       task2.status = :failed
-      expect(task1.dependencies_have_failed?).to eq true
       expect(task1.failed?).to eq true
-      expect(task2.dependencies_have_failed?).to eq false
       expect(task2.failed?).to eq true
     end
 
     it 'can detect that far dependencies are failed' do
       task1.dependency_backward_add task2
       task2.dependency_backward_add task3
-      expect(task1.dependencies_have_failed?).to eq false
       expect(task1.failed?).to eq false
-      expect(task2.dependencies_have_failed?).to eq false
       expect(task2.failed?).to eq false
-      expect(task3.dependencies_have_failed?).to eq false
       expect(task3.failed?).to eq false
       task3.status = :failed
-      expect(task1.dependencies_have_failed?).to eq true
+      task2.poll_dependencies
+      task3.poll_dependencies
       expect(task1.failed?).to eq true
-      expect(task2.dependencies_have_failed?).to eq true
       expect(task2.failed?).to eq true
-      expect(task3.dependencies_have_failed?).to eq false
       expect(task3.failed?).to eq true
-    end
-
-    it 'can reset saved detections' do
-      task1.dependency_backward_add task2
-      task2.status = :failed
-      expect(task1.failed?).to eq true
-      task2.status = :pending
-      task1.reset
-      expect(task1.failed?).to eq false
     end
 
   end
@@ -276,19 +254,19 @@ describe Deployment::Task do
   context '#inspection' do
 
     it 'can to_s' do
-      expect(subject.to_s).to eq 'Task[node1/task1]'
+      expect(subject.to_s).to eq 'Task[task1/node1]'
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: pending DepsReady: true DepsFailed: false'
+      expect(subject.inspect).to eq 'Task[task1/node1]{Status: pending}'
       subject.status = :failed
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: true DepsFailed: false'
+      expect(subject.inspect).to eq 'Task[task1/node1]{Status: failed}'
       subject.dependency_backward_add task2
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2]'
+      expect(subject.inspect).to eq 'Task[task1/node1]{Status: failed After: Task[task2/node1]}'
       subject.dependency_backward_add task2_1
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2], Task[node2/task1]'
+      expect(subject.inspect).to eq 'Task[task1/node1]{Status: failed After: Task[task1/node2], Task[task2/node1]}'
       subject.dependency_forward_add task2_2
-      expect(subject.inspect).to eq 'Task[node1/task1] Status: failed DepsReady: false DepsFailed: false After: Task[node1/task2], Task[node2/task1] Before: Task[node2/task2]'
+      expect(subject.inspect).to eq 'Task[task1/node1]{Status: failed After: Task[task1/node2], Task[task2/node1] Before: Task[task2/node2]}'
     end
   end
 
@@ -304,7 +282,7 @@ describe Deployment::Task do
       expect(subject.maximum_concurrency).to eq 2
       expect do
         subject.maximum_concurrency = 'value'
-      end.to raise_exception Deployment::InvalidArgument, /should be an integer/
+      end.to raise_error Deployment::InvalidArgument, /should be an integer/
     end
 
     it 'can read the current concurrency counter' do
@@ -312,7 +290,7 @@ describe Deployment::Task do
     end
 
     it 'can increase the current concurrency counter' do
-      subject.current_concurrency_reset
+      subject.current_concurrency_zero
       expect(subject.current_concurrency_increase).to eq 1
       expect(subject.current_concurrency).to eq 1
       subject.current_concurrency_increase
@@ -320,7 +298,7 @@ describe Deployment::Task do
     end
 
     it 'can decrease the current concurrency counter' do
-      subject.current_concurrency_reset
+      subject.current_concurrency_zero
       subject.current_concurrency_increase
       expect(subject.current_concurrency).to eq 1
       expect(subject.current_concurrency_decrease).to eq 0
@@ -330,7 +308,7 @@ describe Deployment::Task do
     end
 
     it 'can manually set the current concurrency value' do
-      subject.current_concurrency_reset
+      subject.current_concurrency_zero
       expect(subject.current_concurrency = 100).to eq 100
       expect(subject.current_concurrency).to eq 100
       expect(subject.current_concurrency = -100).to eq -100
@@ -338,15 +316,15 @@ describe Deployment::Task do
     end
 
     it 'can reset the current concurrency' do
-      subject.current_concurrency_reset
+      subject.current_concurrency_zero
       subject.current_concurrency_increase
       expect(subject.current_concurrency).to eq 1
-      expect(subject.current_concurrency_reset).to eq 0
+      expect(subject.current_concurrency_zero).to eq 0
       expect(subject.current_concurrency).to eq 0
     end
 
     it 'can check that the concurrency is available' do
-      subject.current_concurrency_reset
+      subject.current_concurrency_zero
       expect(subject.concurrency_available?).to eq true
       subject.maximum_concurrency = 1
       expect(subject.concurrency_available?).to eq true
@@ -361,7 +339,7 @@ describe Deployment::Task do
     end
 
     it 'can change the current concurrency when the status changes for all nodes' do
-      task1.current_concurrency_reset
+      task1.current_concurrency_zero
       task1.maximum_concurrency = 1
       task1.status = :running
       expect(task1.current_concurrency).to eq 1

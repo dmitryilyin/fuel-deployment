@@ -30,16 +30,17 @@ module Deployment
     # @param [Deployment::Task] task
     # @return [Symbol]
     def gv_task_color(task)
-      return :orange if task.dependencies_have_failed? and not task.status == :failed
-      return :yellow if task.dependencies_are_ready? and task.status == :pending
-
       case task.status
         when :pending;
           :white
+        when :ready
+          :yellow
         when :successful;
           :green
         when :failed;
           :red
+        when :dep_failed;
+          :rose
         when :skipped;
           :purple
         when :running;
@@ -91,7 +92,7 @@ module Deployment
       gv_reset
       return unless gv_object
       @step = 1 unless @step
-      name = "#{gv_object.name}-#{@step}"
+      name = "#{gv_object.name}-#{@step.to_s.rjust 5, '0'}"
       file = gv_make_image name
       @step += 1
       gv_reset

@@ -5,7 +5,7 @@ $LOAD_PATH << lib_dir
 require 'rubygems'
 require 'fuel-deployment'
 
-Deployment::Log.logger.level = Logger::INFO
+Deployment::Log.logger.level = Logger::DEBUG
 
 module Deployment
   class TestNode < Node
@@ -33,7 +33,6 @@ module Deployment
       debug 'Start processing all nodes'
       each_node do |node|
         process_node node
-        gv_load
         gv_make_step_image
       end
     end

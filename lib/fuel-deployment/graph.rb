@@ -1,3 +1,5 @@
+require 'fuel-deployment/gv'
+
 module Deployment
 
   # The graph object contains task objects
@@ -17,11 +19,13 @@ module Deployment
       @tasks_are_finished = false
       @tasks_are_successful = false
       self.node = node
+      @gv_filter_node = self.node
       @tasks = {}
     end
 
     include Enumerable
     include Deployment::Log
+    include Deployment::GV
 
     attr_reader :node
     attr_reader :tasks
@@ -280,13 +284,6 @@ module Deployment
       end
     end
 
-    # Load the Graphviz module to visualize the graph
-    def gv_load
-      require 'deployment/gv'
-      extend Deployment::GV
-      self.gv_filter_node = node
-    end
-
     # @return [String]
     def to_s
       "Graph[#{name}]"
@@ -294,10 +291,10 @@ module Deployment
 
     # @return [String]
     def inspect
-      message = "#{self}"
-      message += " Tasks: #{tasks_finished_count}/#{tasks_total_count}"
+      message = "#{self}{"
+      message += "Tasks: #{tasks_finished_count}/#{tasks_total_count}"
       message += " Finished: #{tasks_are_finished?} Failed: #{tasks_have_failed?} Successful: #{tasks_are_successful?}"
-      message
+      message + '}'
     end
   end
 end

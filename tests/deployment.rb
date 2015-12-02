@@ -85,8 +85,9 @@ end
 deployment.id = 'deployment'
 
 if PLOT
-  deployment.gv_load
   deployment.gv_make_image
 end
 
-deployment.run
+# deployment.run
+require 'pry'
+binding.pry

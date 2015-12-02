@@ -10,4 +10,8 @@ module Deployment
   # You have directly called an abstract method that should be implemented in a subclass
   class NotImplemented < StandardError
   end
+
+  # Loop detected in the graph
+  class LoopDetected < StandardError
+  end
 end

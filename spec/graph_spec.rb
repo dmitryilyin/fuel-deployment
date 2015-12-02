@@ -216,6 +216,7 @@ describe Deployment::Graph do
       task1_1.status = :successful
       expect(subject.ready_task).to eq task1_2
       task1_1.status = :failed
+      task1_2.poll_dependencies
       expect(subject.ready_task).to be_nil
     end
 
@@ -262,15 +263,15 @@ describe Deployment::Graph do
     end
 
     it 'can inspect' do
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 0/0 Finished: true Failed: false Successful: true'
+      expect(subject.inspect).to eq 'Graph[node1]{Tasks: 0/0 Finished: true Failed: false Successful: true}'
       subject.task_add task1_1
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 0/1 Finished: false Failed: false Successful: false'
+      expect(subject.inspect).to eq 'Graph[node1]{Tasks: 0/1 Finished: false Failed: false Successful: false}'
       task1_1.status = :successful
       subject.reset
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1/1 Finished: true Failed: false Successful: true'
+      expect(subject.inspect).to eq 'Graph[node1]{Tasks: 1/1 Finished: true Failed: false Successful: true}'
       task1_1.status = :failed
       subject.reset
-      expect(subject.inspect).to eq 'Graph[node1] Tasks: 1/1 Finished: true Failed: true Successful: false'
+      expect(subject.inspect).to eq 'Graph[node1]{Tasks: 1/1 Finished: true Failed: true Successful: false}'
     end
 
   end

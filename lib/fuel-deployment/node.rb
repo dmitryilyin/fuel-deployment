@@ -165,10 +165,10 @@ module Deployment
 
     # @return [String]
     def inspect
-      message = "#{self} Status: #{status}"
+      message = "#{self}{Status: #{status}"
       message += " Tasks: #{tasks_finished_count}/#{tasks_total_count}"
       message += " CurrentTask: #{task.name}" if task
-      message
+      message + '}'
     end
 
     # Sends all unknown methods to the graph object
