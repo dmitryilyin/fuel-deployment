@@ -16,6 +16,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rake'
   s.add_development_dependency 'ruby-lint'
 
-  s.files = Dir.glob %w(lib/*.rb lib/deployment/*.rb)
+  s.files = Dir.glob %w(lib/*.rb lib/fuel-deployment/*.rb)
   s.require_paths = 'lib'
 end
