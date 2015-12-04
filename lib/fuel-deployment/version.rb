@@ -4,7 +4,7 @@
 # all nodes have no more tasks to run.
 module Deployment
   # The current module version
-  VERSION = '0.2.0'
+  VERSION = '0.2.1'
 
   # Get the current module version
   # @return [String]

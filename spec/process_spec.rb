@@ -18,6 +18,14 @@ describe Deployment::Node do
     Deployment::Task.new 'task2', node1
   end
 
+  let(:task1_3) do
+    Deployment::Task.new 'task3', node1
+  end
+
+  let(:task1_4) do
+    Deployment::Task.new 'task4', node1
+  end
+
   let(:task2_1) do
     Deployment::Task.new 'task1', node2
   end
@@ -164,6 +172,87 @@ describe Deployment::Node do
       task1_1.status = :successful
       task1_2.status = :failed
       expect(subject.tasks_pending_count).to eq 2
+    end
+  end
+
+  context '#dfs' do
+    context '#no loop' do
+      let(:process) do
+        task1_2.after task1_1
+        task1_3.after task1_1
+        task1_4.after task1_2
+        task1_4.after task1_3
+        node1.add_task task1_1
+        node1.add_task task1_2
+        node1.add_task task1_3
+        node1.add_task task1_4
+        process = Deployment::Process[node1]
+        process.id = 'no_loop'
+        process
+      end
+
+      it 'can walk forward' do
+        process
+        visited = task1_1.dfs_forward.to_a
+        expect(visited).to eq [task1_1, task1_2, task1_4, task1_3, task1_4]
+      end
+
+      it 'can walk backward' do
+        process
+        visited = task1_4.dfs_backward.to_a
+        expect(visited).to eq [task1_4, task1_2, task1_1, task1_3, task1_1]
+      end
+
+      it 'can topology sort' do
+        expect(process.topology_sort).to eq [task1_1, task1_3, task1_2, task1_4]
+      end
+
+      it 'can check if there is no loop' do
+        expect(process.has_loop?).to eq false
+      end
+    end
+
+    context '#has loop' do
+      let(:process) do
+        task1_2.after task1_1
+        task1_3.after task1_2
+        task1_4.after task1_3
+        task1_1.after task1_4
+        node1.add_task task1_1
+        node1.add_task task1_2
+        node1.add_task task1_3
+        node1.add_task task1_4
+        process = Deployment::Process[node1]
+        process.id = 'has_loop'
+        process
+      end
+
+      it 'can walk forward' do
+        message = 'Task[task1/node1]: Loop detected! Path: Task[task1/node1], Task[task2/node1], Task[task3/node1], Task[task4/node1], Task[task1/node1]'
+        process
+        expect do
+          task1_1.dfs_forward.to_a
+        end.to raise_error Deployment::LoopDetected, message
+      end
+
+      it 'can walk backward' do
+        message = 'Task[task1/node1]: Loop detected! Path: Task[task1/node1], Task[task4/node1], Task[task3/node1], Task[task2/node1], Task[task1/node1]'
+        process
+        expect do
+          task1_1.dfs_backward.to_a
+        end.to raise_error Deployment::LoopDetected, message
+      end
+
+      it 'can topology sort' do
+        message = 'Process[has_loop]: Loop detected! Path: Task[task1/node1], Task[task2/node1], Task[task3/node1], Task[task4/node1], Task[task1/node1]'
+        expect do
+          process.topology_sort
+        end.to raise_error Deployment::LoopDetected, message
+      end
+
+      it 'can check if there is no loop' do
+        expect(process.has_loop?).to eq true
+      end
     end
   end
 

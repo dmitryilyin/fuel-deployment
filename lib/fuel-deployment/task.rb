@@ -54,36 +54,40 @@ module Deployment
     attr_reader :forward_dependencies
     attr_accessor :data
 
-    # Walk forward dependencies with Depth First Search algorithm
-    # @return [Array<Deployment::Task>]
-    # @raise Deployment::LoopDetected if a loop is detected
-    def dfs_forward(topology=[], marks={})
-      if marks[self] == :grey
-        raise Deployment::LoopDetected, "#{self}: have already been visited! Loop detected!"
+    # Walk the task graph forward using DFS algorithm
+    # @param [Array<Deployment::Task>] visited The list of visited tasks for loop detection
+    # @yield [Deployment::Task]
+    def dfs_forward(visited = [], &block)
+      return to_enum(:dfs_forward) unless block_given?
+      if visited.include? self
+        visited << self
+        visited = visited.join ', '
+        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
       end
-      return if marks[self]
-      marks[self] = :grey
+      visited << self
+      yield self
       each_forward_dependency do |task|
-        task.dfs_forward topology, marks
+        task.dfs_forward visited, &block
       end
-      marks[self] = :black
-      topology.insert 0, self
+      visited.delete self
     end
 
-    # Walk backward dependencies with Depth First Search algorithm
-    # @return [Array<Deployment::Task>]
-    # @raise Deployment::LoopDetected if a loop is detected
-    def dfs_backward(topology=[], marks={})
-      if marks[self] == :grey
-        raise Deployment::LoopDetected, "#{self}: have already been visited! Loop detected!"
+    # Walk the task graph backward using DFS algorithm
+    # @param [Array<Deployment::Task>] visited The list of visited tasks for loop detection
+    # @yield [Deployment::Task]
+    def dfs_backward(visited = [], &block)
+      return to_enum(:dfs_backward) unless block_given?
+      if visited.include? self
+        visited << self
+        visited = visited.join ', '
+        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
       end
-      return if marks[self]
-      marks[self] = :grey
+      visited << self
+      yield self
       each_backward_dependency do |task|
-        task.dfs_backward topology, marks
+        task.dfs_backward visited, &block
       end
-      marks[self] = :black
-      topology.insert 0, self
+      visited.delete self
     end
 
     # Set this task's Node object

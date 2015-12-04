@@ -72,16 +72,53 @@ module Deployment
     # @return [Array<Deployment::Task>]
     # @raise
     def topology_sort
-      marks =  {}
       topology = []
+      permanently_visited = Set.new
+      temporary_visited = []
       loop do
         task = each_task.find do |task|
-          not marks.key? task
+          not (permanently_visited.include? task or temporary_visited.include? task)
         end
         return topology unless task
-        task.dfs_forward topology, marks
+        visit task, topology, permanently_visited, temporary_visited
       end
       topology
+    end
+
+    # Tarjan's Algorithm visit function
+    # @return [Array<Deployment::Task>]
+    # @raise Deployment::LoopDetected If a loop is detected in the graph
+    # These parameters are carried through the recursion calls:
+    # @param [Array<Deployment::Task>] topology A list of topologically sorted tasks
+    # @param [Set<Deployment::Task>] permanently_visited Set of permanently visited tasks
+    # @param [Array<Deployment::Task>] temporary_visited List of temporary visited tasks
+    def visit(task, topology = [], permanently_visited = Set.new, temporary_visited = [])
+      if temporary_visited.include? task
+        # This node have already been visited in this small iteration and
+        # it means that there is a loop.
+        temporary_visited << task
+        visited = temporary_visited.join ', '
+        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
+      end
+      if permanently_visited.include? task
+        # We have already checked this node for loops in
+        # its forward dependencies. Skip it.
+        return
+      end
+      # Start a small iteration over this node's forward dependencies
+      # add this node to the last iteration visit list and run recursion
+      # on the forward dependencies
+      temporary_visited << task
+      task.each_forward_dependency do |forward_task|
+        visit forward_task, topology, permanently_visited, temporary_visited
+      end
+      # Small iteration have completed without loops.
+      # We add this node to the list of permanently marked nodes and
+      # remove in from the temporary marked nodes list.
+      permanently_visited.add task
+      temporary_visited.delete task
+      # Insert this node to the head of topology sort list and return it.
+      topology.insert 0, task
     end
 
     # Process a single node when it's visited.
@@ -235,13 +272,6 @@ module Deployment
       inject(0) do |sum, node|
         sum + node.graph.tasks_pending_count
       end
-    end
-
-    # Load the Graphviz module to visualize the deployment
-    def gv_load
-      require 'fuel-deployment/gv'
-      extend Deployment::GV
-      self.gv_filter_node = nil
     end
 
     # @return [String]

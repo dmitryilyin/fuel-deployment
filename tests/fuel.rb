@@ -2,7 +2,7 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 require 'yaml'
 
-Deployment::Log.logger.level = Logger::INFO
+Deployment::Log.logger.level = Logger::DEBUG
 
 deployment_tasks = YAML.load_file File.join File.dirname(__FILE__), 'fuel.yaml'
 
