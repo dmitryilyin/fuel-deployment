@@ -61,8 +61,7 @@ module Deployment
       return to_enum(:dfs_forward) unless block_given?
       if visited.include? self
         visited << self
-        visited = visited.join ', '
-        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
+        raise Deployment::LoopDetected.new self, 'Loop detected!', visited
       end
       visited << self
       yield self
@@ -79,8 +78,7 @@ module Deployment
       return to_enum(:dfs_backward) unless block_given?
       if visited.include? self
         visited << self
-        visited = visited.join ', '
-        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
+        raise Deployment::LoopDetected.new self, 'Loop detected!', visited
       end
       visited << self
       yield self
@@ -95,7 +93,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the object is not a Node
     # @return [Deployment::Node]
     def node=(node)
-      raise Deployment::InvalidArgument, "#{self}: Not a node used instead of the task node" unless node.is_a? Deployment::Node
+      raise Deployment::InvalidArgument.new self, 'Not a node used instead of the task node!', node unless node.is_a? Deployment::Node
       @node = node
     end
 
@@ -114,7 +112,7 @@ module Deployment
     # @return [Symbol]
     def status=(value)
       value = value.to_s.to_sym
-      raise Deployment::InvalidArgument, "#{self}: Invalid task status: #{value}" unless ALLOWED_STATUSES.include? value
+      raise Deployment::InvalidArgument.new self, 'Invalid task status!', value unless ALLOWED_STATUSES.include? value
       status_changes_concurrency @status, value
       @status = value
       poll_forward if FINISHED_STATUSES.include? value
@@ -147,7 +145,7 @@ module Deployment
         begin
           @current_concurrency[key] = Integer(value)
         rescue TypeError, ArgumentError
-          raise Deployment::InvalidArgument, "#{self}: Current concurrency should be an integer number"
+          raise Deployment::InvalidArgument.new self, 'Current concurrency should be an integer number!', value
         end
       end
       @current_concurrency[key] = 0 if @current_concurrency[key] < 0
@@ -168,7 +166,7 @@ module Deployment
       begin
         @maximum_concurrency[key] = Integer(value)
       rescue TypeError, ArgumentError
-        raise Deployment::InvalidArgument, "#{self}: Maximum concurrency should be an integer number"
+        raise Deployment::InvalidArgument.new self, 'Maximum concurrency should be an integer number!', value
       end
       @maximum_concurrency[key]
     end
@@ -259,7 +257,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_backward_add(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       return task if task == self
       backward_dependencies.add task
       task.forward_dependencies.add self
@@ -277,7 +275,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_forward_add(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       return task if task == self
       forward_dependencies.add task
       task.backward_dependencies.add self
@@ -293,7 +291,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_backward_remove(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       backward_dependencies.delete task
       task.forward_dependencies.delete self
       task
@@ -309,7 +307,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_forward_remove(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       forward_dependencies.delete task
       task.backward_dependencies.delete self
       task
@@ -323,7 +321,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_backward_present?(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       backward_dependencies.member? task and task.forward_dependencies.member? self
     end
     alias :has_requires? :dependency_backward_present?
@@ -337,7 +335,7 @@ module Deployment
     # @raise [Deployment::InvalidArgument] if the task is not a Task object
     # @return [Deployment::Task]
     def dependency_forward_present?(task)
-      fail Deployment::InvalidArgument, "#{self}: Dependency should be a task" unless task.is_a? Task
+      raise Deployment::InvalidArgument.new self, 'Dependency should be a task!', task unless task.is_a? Task
       forward_dependencies.member? task and task.backward_dependencies.member? self
     end
     alias :has_is_required? :dependency_forward_present?

@@ -19,7 +19,7 @@ module Deployment
     # @return [Logger]
     def self.logger=(value)
       unless value.respond_to? :debug and value.respond_to? :warn and value.respond_to? :info
-        raise Deployment::InvalidArgument, 'The object does not look like a logger'
+        raise Deployment::InvalidArgument.new self, 'The object does not look like a logger!', value
       end
       @logger = value
     end

@@ -4,8 +4,6 @@ require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 TASK_NUMBER = 100
 NODE_NUMBER = 100
 
-PLOT = ARGV[0] == '1'
-
 Deployment::Log.logger.level = Logger::WARN
 
 def make_nodes
@@ -45,10 +43,12 @@ end
 deployment = Deployment::Process[*nodes]
 deployment.id = 'scale'
 
-if PLOT
+if options[:plot]
   deployment.gv_make_image
 end
 
-deployment.run
-
-
+if options[:interactive]
+  binding.pry
+else
+  deployment.run
+end

@@ -35,6 +35,8 @@ task1.after task3
 deployment = Deployment::Process[node1]
 deployment.id = 'loop'
 
-# deployment.run
-require 'pry'
-binding.pry
+if options[:interactive]
+  binding.pry
+else
+  deployment.run
+end

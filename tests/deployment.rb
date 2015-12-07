@@ -1,10 +1,6 @@
 #!/usr/bin/env ruby
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-PLOT = ARGV[0] == '1'
-FAIL = ARGV[1] == '1'
-CRIT = ARGV[2] == '1'
-
 node1_data = [
     [0, 1],
     [1, 2],
@@ -50,7 +46,7 @@ class Deployment::TestNodeWithFail < Deployment::TestNode
   end
 end
 
-if FAIL
+if options[:fail]
   node1 = Deployment::TestNodeWithFail.new 'node1'
   node2 = Deployment::TestNodeWithFail.new 'node2'
 else
@@ -58,7 +54,7 @@ else
   node2 = Deployment::TestNode.new 'node2'
 end
 
-node2.set_critical if CRIT
+node2.set_critical if options[:critical]
 
 node1_data.each do |task_from, task_to|
   task_from = node1.graph.create_task "task#{task_from}"
@@ -76,7 +72,7 @@ node2['task4'].depends node1['task3']
 node2['task5'].depends node1['task13']
 node1['task15'].depends node2['task6']
 
-if PLOT
+if options[:plot]
   deployment = Deployment::PlotProcess.new(node1, node2)
 else
   deployment = Deployment::Process.new(node1, node2)
@@ -84,10 +80,12 @@ end
 
 deployment.id = 'deployment'
 
-if PLOT
+if options[:plot]
   deployment.gv_make_image
 end
 
-# deployment.run
-require 'pry'
-binding.pry
+if options[:interactive]
+  binding.pry
+else
+  deployment.run
+end

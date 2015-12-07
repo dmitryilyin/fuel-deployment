@@ -33,8 +33,8 @@ module Deployment
     # @param [Array<Deployment::Node>] nodes The array of nodes to deploy
     # @return Deployment::Node
     def nodes=(nodes)
-      fail Deployment::InvalidArgument, "#{self}: Nodes should be an array" unless nodes.is_a? Array
-      fail Deployment::InvalidArgument, "#{self}: Nodes should contain only Node objects" unless nodes.all? { |n| n.is_a? Deployment::Node }
+      raise Deployment::InvalidArgument.new self, 'Nodes should be an array!', nodes unless nodes.is_a? Array
+      raise Deployment::InvalidArgument.new self, 'Nodes should contain only Node objects!', nodes unless nodes.all? { |n| n.is_a? Deployment::Node }
       @nodes = nodes
     end
 
@@ -97,8 +97,7 @@ module Deployment
         # This node have already been visited in this small iteration and
         # it means that there is a loop.
         temporary_visited << task
-        visited = temporary_visited.join ', '
-        raise Deployment::LoopDetected, "#{self}: Loop detected! Path: #{visited}"
+        raise Deployment::LoopDetected.new self, 'Loop detected!', temporary_visited
       end
       if permanently_visited.include? task
         # We have already checked this node for loops in
@@ -129,20 +128,32 @@ module Deployment
     # @return [void]
     def process_node(node)
       debug "Process node: #{node}"
+      hook 'pre_node', node
       node.poll
       return unless node.online?
       ready_task = node.ready_task
       return unless ready_task
       ready_task.run
+      hook 'post_node', node
+    end
+
+    # Run a hook method is this method is defined
+    # @param [String, Symbol] name Hook name
+    # @param [Object] args Hook arguments
+    def hook(name, *args)
+      name = ('hook_' + name.to_s).to_sym
+      send name, *args if respond_to? name
     end
 
     # Loops once through all nodes and processes each one
     # @return [void]
     def process_all_nodes
       debug 'Start processing all nodes'
+      hook 'pre_all'
       each_node do |node|
         process_node node
       end
+      hook 'post_all'
     end
 
     # Run this deployment process.
@@ -155,8 +166,8 @@ module Deployment
     def run
       info 'Starting the deployment process'
       topology_sort
-
-      loop do
+      hook 'pre_run'
+      result = loop do
         if all_nodes_are_successful?
           info 'All nodes are deployed successfully. Stopping the deployment process'
           break true
@@ -175,10 +186,11 @@ module Deployment
           end
           break false
         end
-
         # run loop over all nodes
         process_all_nodes
       end
+      hook 'post_run'
+      result
     end
 
     # Get the list of critical nodes

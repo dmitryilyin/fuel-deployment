@@ -4,8 +4,33 @@ $LOAD_PATH << lib_dir
 
 require 'rubygems'
 require 'fuel-deployment'
+require 'optparse'
+require 'pry'
 
-Deployment::Log.logger.level = Logger::DEBUG
+Deployment::Log.logger.level = Logger::INFO
+
+def options
+  return $options if $options
+  $options = {}
+  OptionParser.new do |opts|
+    opts.on('-p', '--plot') do |value|
+      options[:plot] = value
+    end
+    opts.on('-f', '--fail') do |value|
+      options[:fail] = value
+    end
+    opts.on('-c', '--critical') do |value|
+      options[:critical] = value
+    end
+    opts.on('-i', '--interactive') do |value|
+      options[:interactive] = value
+    end
+    opts.on('-d', '--debug') do
+      Deployment::Log.logger.level = Logger::DEBUG
+    end
+  end.parse!
+  $options
+end
 
 module Deployment
   class TestNode < Node
@@ -28,13 +53,8 @@ module Deployment
   end
 
   class PlotProcess < Process
-    # loop once through all nodes and process them
-    def process_all_nodes
-      debug 'Start processing all nodes'
-      each_node do |node|
-        process_node node
-        gv_make_step_image
-      end
+    def hook_post_node(*args)
+      gv_make_step_image
     end
   end
 end

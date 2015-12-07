@@ -2,8 +2,6 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 require 'yaml'
 
-Deployment::Log.logger.level = Logger::DEBUG
-
 deployment_tasks = YAML.load_file File.join File.dirname(__FILE__), 'fuel.yaml'
 
 nodes = deployment_tasks.keys.inject({}) do |nodes, node_id|
@@ -49,6 +47,8 @@ end
 deployment = Deployment::Process.new nodes.values
 deployment.id = 'fuel'
 
-# deployment.run
-require 'pry'
-binding.pry
+if options[:interactive]
+  binding.pry
+else
+  deployment.run
+end

@@ -59,9 +59,9 @@ module Deployment
     # @raise [Deployment::InvalidArgument] If the object is not a task or the task is not from this graph
     # @return [Deployment::Task]
     def task_add(task)
-      fail Deployment::InvalidArgument, "#{self}: Graph can add only tasks" unless task.is_a? Deployment::Task
+      raise Deployment::InvalidArgument.new self, 'Graph can add only tasks!', task unless task.is_a? Deployment::Task
       return task_get task if task_present? task
-      fail Deployment::InvalidArgument, "#{self}: Graph cannot add tasks not for this node" unless task.node == node
+      raise Deployment::InvalidArgument.new self, 'Graph cannot add tasks not for this node!', task unless task.node == node
       tasks.store prepare_key(task), task
       reset
       task
@@ -145,11 +145,11 @@ module Deployment
     def add_dependency(task_from, task_to)
       unless task_from.is_a? Deployment::Task
         task_from = get_task task_from
-        fail Deployment::NoSuchTask, "#{self}: There is no such task in the graph: #{task_from}" unless task_from
+        raise Deployment::NoSuchTask.new self, 'There is no such task in the graph!', task_from unless task_from
       end
       unless task_to.is_a? Deployment::Task
         task_to = get_task task_to
-        fail Deployment::NoSuchTask, "#{self}: There is no such task in the graph: #{task_to}" unless task_to
+        raise Deployment::NoSuchTask.new self, 'There is no such task in the graph!', task_to unless task_to
       end
       task_to.dependency_backward_add task_from
     end
@@ -161,7 +161,7 @@ module Deployment
     # @param [Deployment::Node] node A new node object
     # @raise [Deployment::InvalidArgument] If you pass a wrong object
     def node=(node)
-      fail Deployment::InvalidArgument, "#{self}: Not a node used instead of the graph node" unless node.is_a? Deployment::Node
+      raise Deployment::InvalidArgument.new self, 'Not a node used instead of the graph node!', node unless node.is_a? Deployment::Node
       @node = node
     end
 

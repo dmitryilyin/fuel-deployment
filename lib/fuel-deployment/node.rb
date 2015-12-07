@@ -49,7 +49,7 @@ module Deployment
     # @return [Symbol]
     def status=(value)
       value = value.to_sym
-      fail Deployment::InvalidArgument, "#{self}: Invalid node status: #{value}" unless ALLOWED_STATUSES.include? value
+      raise Deployment::InvalidArgument.new self, 'Invalid node status!', value unless ALLOWED_STATUSES.include? value
       @status = value
     end
 
@@ -135,8 +135,8 @@ module Deployment
     # @return [Deployment::Task]
     def task=(task)
       unless task.nil?
-        fail Deployment::InvalidArgument, "#{self}: Task should be a task object or nil" unless task.is_a? Deployment::Task
-        fail Deployment::InvalidArgument, "#{self}: Task #{task} is not found in the graph" unless graph.task_present? task
+        raise Deployment::InvalidArgument.new self, 'Task should be a task object or nil!', task unless task.is_a? Deployment::Task
+        raise Deployment::InvalidArgument.new self, 'Task is not found in the graph!', task unless graph.task_present? task
       end
       @task = task
     end
@@ -146,7 +146,7 @@ module Deployment
     # @param [Deployment::Graph] graph
     # @return [Deployment::Graph]
     def graph=(graph)
-      fail Deployment::InvalidArgument, "#{self}: Graph should be a graph object" unless graph.is_a? Deployment::Graph
+      raise Deployment::InvalidArgument.new self, 'Graph should be a graph object!', graph unless graph.is_a? Deployment::Graph
       graph.node = self
       @graph = graph
     end

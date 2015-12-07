@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
-PLOT = ARGV[0] == '1'
-
 node1 = Deployment::TestNode.new 'node1'
 node2 = Deployment::TestNode.new 'node2'
 node3 = Deployment::TestNode.new 'node3'
@@ -30,7 +28,7 @@ node3['final'].after node3['task1']
 node4['final'].after node4['task1']
 node5['final'].after node5['task1']
 
-if PLOT
+if options[:plot]
   deployment = Deployment::PlotProcess[node1, node2, node3, node4, node5]
 else
   deployment = Deployment::Process[node1, node2, node3, node4, node5]
@@ -41,8 +39,12 @@ deployment.id = 'concurrency'
 node1['task1'].maximum_concurrency = 2
 node1['final'].maximum_concurrency = 1
 
-if PLOT
+if options[:plot]
   deployment.gv_make_image
 end
 
-deployment.run
+if options[:interactive]
+  binding.pry
+else
+  deployment.run
+end
