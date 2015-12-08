@@ -169,27 +169,39 @@ module Deployment
       hook 'pre_run'
       result = loop do
         if all_nodes_are_successful?
-          info 'All nodes are deployed successfully. Stopping the deployment process'
-          break true
+          status = 'All nodes are deployed successfully. Stopping the deployment process!'
+          result = {
+              :success => true,
+              :status => status,
+          }
+          info result[:status]
+          break result
         end
         if has_failed_critical_nodes?
           failed_names = failed_critical_nodes.map { |n| n.name }.join ', '
-          info "Critical nodes failed: #{failed_names}. Stopping the deployment process."
-          break false
+          status =  "Critical nodes failed: #{failed_names}. Stopping the deployment process!"
+          result = {
+              :success => false,
+              :status => status,
+              :failed_nodes => failed_critical_nodes,
+              :failed_tasks => failed_tasks,
+          }
+          break result
         end
         if all_nodes_are_finished?
-          if has_failed_nodes?
-            failed_names = failed_nodes.map { |n| n.name }.join ', '
-            info "All nodes are finished and some have failed: #{failed_names}. Stopping the deployment process."
-          else
-            info 'All nodes are finished. Stopping the deployment process.'
-          end
-          break false
+          status = 'All nodes are finished. Stopping the deployment process!'
+          result = {
+              :success => false,
+              :status => status,
+              :failed_nodes => failed_nodes,
+              :failed_tasks => failed_tasks,
+          }
+          break result
         end
         # run loop over all nodes
         process_all_nodes
       end
-      hook 'post_run'
+      hook 'post_run', result
       result
     end
 
@@ -221,6 +233,14 @@ module Deployment
     def failed_nodes
       select do |node|
         node.failed?
+      end
+    end
+
+    # Get the list of the failed nodes
+    # @return [Array<Deployment::Node>]
+    def failed_tasks
+      each_task.select do |task|
+        task.status == :failed
       end
     end
 
