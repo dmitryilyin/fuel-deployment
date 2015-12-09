@@ -70,6 +70,15 @@ module Deployment
       end
     end
 
+    # Iterates through the task that are ready to be run
+    # @yield Deployment::Task
+    def each_ready_task
+      return to_enum(:each_ready_task) unless block_given?
+      each_task do |task|
+        yield task if task.ready?
+      end
+    end
+
     # Check if graphs have a closed loop
     # @return [true, false]
     def has_loop?
@@ -178,7 +187,8 @@ module Deployment
     # Actually, it's enough to check only for finished nodes.
     # @return [true, false]
     def run
-      info 'Starting the deployment process'
+      ready_nodes = each_ready_task.to_a.join ', '
+      info "Starting the deployment process from tasks: #{ready_nodes}"
       topology_sort
       hook 'pre_run'
       result = loop do

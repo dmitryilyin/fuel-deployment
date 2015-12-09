@@ -84,6 +84,13 @@ describe Deployment::Node do
       expect(subject.each_task.to_a).to eq [task1_1, task1_2, task2_1, task2_2]
     end
 
+    it 'can iterate through all ready tasks' do
+      task1_2.after task1_1
+      task2_1.after task1_2
+      task2_2.after task2_1
+      expect(subject.each_ready_task.to_a).to eq [task1_1]
+    end
+
     it 'can check if all nodes are finished' do
       task1_1.status = :successful
       task1_2.status = :failed
