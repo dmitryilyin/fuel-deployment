@@ -12,12 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-require 'fuel-deployment/error'
-require 'fuel-deployment/log'
-require 'fuel-deployment/version'
+require 'fuel_deployment/error'
+require 'fuel_deployment/log'
+require 'fuel_deployment/version'
 
-require 'fuel-deployment/task'
-require 'fuel-deployment/graph'
-require 'fuel-deployment/node'
-require 'fuel-deployment/process'
-require 'fuel-deployment/gv'
+require 'fuel_deployment/task'
+require 'fuel_deployment/graph'
+require 'fuel_deployment/node'
+require 'fuel_deployment/cluster'

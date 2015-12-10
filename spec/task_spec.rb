@@ -1,33 +1,60 @@
+#    Copyright 2015 Mirantis, Inc.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 require 'spec_helper'
 
 describe Deployment::Task do
 
+  let(:cluster) do
+    cluster = Deployment::Cluster.new
+    cluster.id = 'test'
+    node1 = cluster.create_node 'node1'
+    node2 = cluster.create_node 'node2'
+    node1.create_task 'task1'
+    node1.create_task 'task2'
+    node1.create_task 'task3'
+    node2.create_task 'task1'
+    node2.create_task 'task2'
+    cluster
+  end
+
   let(:node1) do
-    Deployment::Node.new 'node1'
+    cluster['node1']
   end
 
   let(:node2) do
-    Deployment::Node.new 'node2'
+    cluster['node2']
   end
 
   let(:task1) do
-    Deployment::Task.new 'task1', node1
+    cluster['node1']['task1']
   end
 
   let(:task2) do
-    Deployment::Task.new 'task2', node1
+    cluster['node1']['task2']
   end
 
   let(:task3) do
-    Deployment::Task.new 'task3', node1
+    cluster['node1']['task3']
   end
 
   let(:task2_1) do
-    Deployment::Task.new 'task1', node2
+    cluster['node2']['task1']
   end
 
   let(:task2_2) do
-    Deployment::Task.new 'task2', node2
+    cluster['node2']['task2']
   end
 
   subject { task1 }
@@ -86,6 +113,49 @@ describe Deployment::Task do
     it 'can use dynamic status setters' do
       subject.set_status_failed
       expect(subject.status).to eq :failed
+    end
+
+    it 'can determine its color' do
+      task2_2.after task2_1
+      expect(task2_1.color).to eq :yellow
+      expect(task2_2.color).to eq :white
+      task2_1.status = :failed
+      expect(task2_1.color).to eq :red
+      expect(task2_2.color).to eq :magenta
+      task2_1.status = :running
+      task2_2.status = :pending
+      expect(task2_1.color).to eq :blue
+      expect(task2_2.color).to eq :white
+      task2_1.status = :successful
+      task2_2.status = :pending
+      expect(task2_1.color).to eq :green
+      expect(task2_2.color).to eq :yellow
+      task2_1.status = :skipped
+      task2_2.status = :pending
+      expect(task2_1.color).to eq :purple
+      expect(task2_2.color).to eq :yellow
+    end
+
+    it 'can determine the task weight for a single node' do
+      task2.after task1
+      task3.after task2
+      expect(task3.weight).to eq 0
+      expect(task2.weight).to eq 1
+      expect(task1.weight).to eq 2
+    end
+
+    it 'can determine the task weight between nodes' do
+      task2.after task1
+      task2_1.after task2
+      expect(task2.weight).to eq 10
+      expect(task1.weight).to eq 11
+      expect(task2_1.weight).to eq 0
+    end
+
+    it 'should add itself to the node when the task is created' do
+      expect(node1.task_present? 'task5').to eq false
+      Deployment::Task.new 'task5', node1
+      expect(node1.task_present? 'task5').to eq true
     end
   end
 
@@ -354,7 +424,7 @@ describe Deployment::Task do
 
   context '#run' do
     it 'can run the task on the node' do
-      expect(node1).to receive(:run).with(task1)
+      node1.expects(:run).with task1
       task1.run
     end
 

@@ -1,4 +1,18 @@
 #!/usr/bin/env ruby
+#    Copyright 2015 Mirantis, Inc.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 node1_data = [
@@ -33,26 +47,12 @@ node2_data = [
     [6, 8],
 ]
 
-class Deployment::TestNodeWithFail < Deployment::TestNode
-  def poll
-    debug 'Poll node status'
-    if busy?
-      status = :successful
-      status = :failed if task.name == 'task4' and node.name == 'node2'
-      debug "#{task} finished with: #{status}"
-      self.task.status = status
-      self.status = :online
-    end
-  end
-end
+cluster = Deployment::TestCluster.new
+cluster.id = 'deployment'
+cluster.plot = true if options[:plot]
 
-if options[:fail]
-  node1 = Deployment::TestNodeWithFail.new 'node1'
-  node2 = Deployment::TestNodeWithFail.new 'node2'
-else
-  node1 = Deployment::TestNode.new 'node1'
-  node2 = Deployment::TestNode.new 'node2'
-end
+node1 = cluster.node_create 'node1', Deployment::TestNode
+node2 = cluster.node_create 'node2', Deployment::TestNode
 
 node2.set_critical if options[:critical]
 
@@ -68,24 +68,18 @@ node2_data.each do |task_from, task_to|
   node2.graph.add_dependency task_from, task_to
 end
 
+node2.fail_tasks << node2['task4'] if options[:fail]
+
 node2['task4'].depends node1['task3']
 node2['task5'].depends node1['task13']
 node1['task15'].depends node2['task6']
 
 if options[:plot]
-  deployment = Deployment::PlotProcess.new(node1, node2)
-else
-  deployment = Deployment::Process.new(node1, node2)
-end
-
-deployment.id = 'deployment'
-
-if options[:plot]
-  deployment.gv_make_image
+  cluster.make_image 'start'
 end
 
 if options[:interactive]
   binding.pry
 else
-  deployment.run
+  cluster.run
 end

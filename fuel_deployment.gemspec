@@ -1,8 +1,8 @@
 $:.unshift File.expand_path('lib', File.dirname(__FILE__))
-require 'fuel-deployment/version'
+require 'fuel_deployment/version'
 
 Gem::Specification.new do |s|
-  s.name = 'fuel-deployment'
+  s.name = 'fuel_deployment'
   s.version = Deployment::VERSION
   s.licenses = 'Apache v2.0'
   s.summary = 'Task deployment engine for Astute'
@@ -15,7 +15,8 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'yard'
   s.add_development_dependency 'rake'
   s.add_development_dependency 'ruby-lint'
+  s.add_development_dependency 'mocha'
 
-  s.files = Dir.glob %w(lib/*.rb lib/fuel-deployment/*.rb)
+  s.files = Dir.glob %w(lib/*.rb lib/fuel_deployment/*.rb)
   s.require_paths = 'lib'
 end

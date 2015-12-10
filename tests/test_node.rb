@@ -1,9 +1,23 @@
+#    Copyright 2015 Mirantis, Inc.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 lib_dir = File.join File.dirname(__FILE__), '../lib'
 lib_dir = File.absolute_path File.expand_path lib_dir
 $LOAD_PATH << lib_dir
 
 require 'rubygems'
-require 'fuel-deployment'
+require 'fuel_deployment'
 require 'optparse'
 require 'pry'
 
@@ -34,6 +48,15 @@ end
 
 module Deployment
   class TestNode < Node
+    def fail_tasks
+      return @fail_tasks if @fail_tasks
+      @fail_tasks = []
+    end
+
+    def fail_tasks=(value)
+      @fail_tasks = value
+    end
+
     def run(task)
       fail Deployment::InvalidArgument, "#{self}: Node can run only tasks" unless task.is_a? Deployment::Task
       debug "Run task: #{task}"
@@ -45,6 +68,7 @@ module Deployment
       debug 'Poll node status'
       if busy?
         status = :successful
+        status = :failed if fail_tasks.include? task
         debug "#{task} finished with: #{status}"
         self.task.status = status
         self.status = :online
@@ -52,9 +76,10 @@ module Deployment
     end
   end
 
-  class PlotProcess < Process
+  class TestCluster < Cluster
+    attr_accessor :plot
     def hook_post_node(*args)
-      gv_make_step_image
+      make_image if plot
     end
   end
 end
