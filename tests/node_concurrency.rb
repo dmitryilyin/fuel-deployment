@@ -16,7 +16,7 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 
 cluster = Deployment::TestCluster.new
-cluster.id = 'concurrency'
+cluster.id = 'node_concurrency'
 cluster.plot = true if options[:plot]
 
 node1 = Deployment::TestNode.new 'node1', cluster
@@ -24,6 +24,7 @@ node2 = Deployment::TestNode.new 'node2', cluster
 node3 = Deployment::TestNode.new 'node3', cluster
 node4 = Deployment::TestNode.new 'node4', cluster
 node5 = Deployment::TestNode.new 'node5', cluster
+node6 = Deployment::TestNode.new 'node6', cluster
 
 node1.add_new_task('task1')
 node1.add_new_task('final')
@@ -40,14 +41,17 @@ node4.add_new_task('final')
 node5.add_new_task('task1')
 node5.add_new_task('final')
 
+node6.add_new_task('task1')
+node6.add_new_task('final')
+
 node1['final'].after node1['task1']
 node2['final'].after node2['task1']
 node3['final'].after node3['task1']
 node4['final'].after node4['task1']
 node5['final'].after node5['task1']
+node6['final'].after node6['task1']
 
-node1['task1'].maximum_concurrency = 2
-node1['final'].maximum_concurrency = 1
+cluster.node_concurrency.maximum = 2
 
 if options[:plot]
   cluster.make_image 'start'

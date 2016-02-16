@@ -16,7 +16,14 @@
 require File.absolute_path File.join File.dirname(__FILE__), 'test_node.rb'
 require 'yaml'
 
-deployment_tasks = YAML.load_file File.join File.dirname(__FILE__), 'fuel.yaml'
+file = if File.file? ARGV[0].to_s
+         ARGV[0].to_s
+       else
+         File.join File.dirname(__FILE__), 'fuel.yaml'
+       end
+
+deployment_tasks = YAML.load_file file
+fail 'Wrong data! YAML should contain Hash!' unless deployment_tasks.is_a? Hash
 
 cluster = Deployment::TestCluster.new
 cluster.id = 'fuel'
